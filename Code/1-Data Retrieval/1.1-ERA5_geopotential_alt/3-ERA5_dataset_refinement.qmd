@@ -1,0 +1,136 @@
+---
+title: "ERA5_dataset_refinement"
+author: "Elsa Barrio Torres"
+format: html
+editor: visual
+---
+
+The raw data used in this file was obtained running the previous Python file ''2-Convert_ERA5_nc_to_csv.ipynb''. This raw data will be deleted at the end of this file, and a refined version will be saved.
+
+## Read .csv files with ERA-5 data
+
+Read the .csv files containing data for relative humidity, geopotential hight, and temperature at pressure levels of 300hPa, 500hPa, 700hPa, and 850hPa.
+
+```{r message = FALSE, warning = FALSE}
+# Set working directory
+setwd("C:/Users/elsac/Documents/ERA5")
+
+# Set data directory
+data_dir <- file.path(getwd(),"Data/Raw.csv")
+
+# Read .csv files for relative humidity at pressure levels of 300hPa, 500hPa, 700hPa, and 850hPa.
+rh_300 <- read.csv(file = file.path(data_dir,"relative humidity300.csv"))
+rh_500 <- read.csv(file = file.path(data_dir,"relative humidity500.csv"))
+rh_700 <- read.csv(file = file.path(data_dir,"relative humidity700.csv"))
+rh_850 <- read.csv(file = file.path(data_dir,"relative humidity850.csv"))
+
+# Read .csv files for geopotential hight at pressure levels of 300hPa, 500hPa, 700hPa, and 850hPa.
+g_300 <- read.csv(file = file.path(data_dir,"geopotential300.csv"))
+g_500 <- read.csv(file = file.path(data_dir,"geopotential500.csv"))
+g_700 <- read.csv(file = file.path(data_dir,"geopotential700.csv"))
+g_850 <- read.csv(file = file.path(data_dir,"geopotential850.csv"))
+
+# Read .csv files for temperature at pressure levels of 300hPa, 500hPa, 700hPa, and 850hPa.
+t_300 <- read.csv(file = file.path(data_dir,"temperature300.csv"))
+t_500 <- read.csv(file = file.path(data_dir,"temperature500.csv"))
+t_700 <- read.csv(file = file.path(data_dir,"temperature700.csv"))
+t_850 <- read.csv(file = file.path(data_dir,"temperature850.csv"))
+```
+
+## Keep data where expver = 1
+
+Now only the data where the parameter **expver** is equal to **1** is kept. expver stands for Experiment Version, and takes values of 1 or 5. expver = 1 refers to the main or primary stream of the ERA5 dataset, while expver = 5 is an extension of the data.
+
+```{r message = FALSE, warning = FALSE}
+
+# Keep only the data where expver = 1
+
+aux_rh_300 <- rh_300[which(rh_300$expver==1),]
+aux_rh_500 <- rh_500[which(rh_500$expver==1),]
+aux_rh_700 <- rh_700[which(rh_700$expver==1),]
+aux_rh_850 <- rh_850[which(rh_850$expver==1),]
+
+aux_g_300 <- g_300[which(g_300$expver==1),]
+aux_g_500 <- g_500[which(g_500$expver==1),]
+aux_g_700 <- g_700[which(g_700$expver==1),]
+aux_g_850 <- g_850[which(g_850$expver==1),]
+
+aux_t_300 <- t_300[which(t_300$expver==1),]
+aux_t_500 <- t_500[which(t_500$expver==1),]
+aux_t_700 <- t_700[which(t_700$expver==1),]
+aux_t_850 <- t_850[which(t_850$expver==1),]
+```
+
+## Create vectors with variable data
+
+Now, a vector with the data for each variable is kept, and three aditional vectors with the latitudes, the longitudes, and the dates.
+
+```{r message = FALSE, warning = FALSE}
+
+# Create vectors with relative humidity data only
+save_rh_300<- aux_rh_300[,"r"]
+save_rh_500<- aux_rh_500[,"r"]
+save_rh_700<- aux_rh_700[,"r"]
+save_rh_850<- aux_rh_850[,"r"]
+
+# Create vectors with geopotential hight data only
+save_g_300<- aux_g_300[,"z"]
+save_g_500<- aux_g_500[,"z"]
+save_g_700<- aux_g_700[,"z"]
+save_g_850<- aux_g_850[,"z"]
+
+# Create vectors with temperature data only
+save_t_300<- aux_t_300[,"t"]
+save_t_500<- aux_t_500[,"t"]
+save_t_700<- aux_t_700[,"t"]
+save_t_850<- aux_t_850[,"t"]
+
+# Create vectors with latitude, longitude, and dates data only
+lon <- aux_t_300[,"longitude"]
+lat <- aux_t_300[,"latitude"]
+DATE <- aux_t_300[,"Date"]
+
+```
+
+## Saved refined data and delete raw data
+
+Now save the vectors created in .rds objects, and delete the folder with the raw .csv data.
+
+```{r message = FALSE, warning = FALSE}
+
+# Create folder to save the data if it does not exist
+outdir <- "C:/Users/elsac/Documents/ERA5/Data/geo.data/"
+if (!dir.exists(outdir)) {dir.create(outdir)}
+
+# Save latitude, longitude, and date data 
+saveRDS(object = lon, file = "C:/Users/elsac/Documents/ERA5/Data/geo.data/lon.rds")
+saveRDS(object = lat, file = "C:/Users/elsac/Documents/ERA5/Data/geo.data/lat.rds")
+saveRDS(object = DATE, file = "C:/Users/elsac/Documents/ERA5/Data/geo.data/Date.rds")
+
+# Save relative humidity data
+saveRDS(object = save_rh_300, file = "C:/Users/elsac/Documents/ERA5/Data/geo.data/rh_300_12pm_60_23.rds")
+saveRDS(object = save_rh_500, file = "C:/Users/elsac/Documents/ERA5/Data/geo.data/rh_500_12pm_60_23.rds")
+saveRDS(object = save_rh_700, file = "C:/Users/elsac/Documents/ERA5/Data/geo.data/rh_700_12pm_60_23.rds")
+saveRDS(object = save_rh_850, file = "C:/Users/elsac/Documents/ERA5/Data/geo.data/rh_850_12pm_60_23.rds")
+
+# Save geopotential hight data
+saveRDS(object = save_g_300, file = "C:/Users/elsac/Documents/ERA5/Data/geo.data/g_300_12pm_60_23.rds")
+saveRDS(object = save_g_500, file = "C:/Users/elsac/Documents/ERA5/Data/geo.data/g_500_12pm_60_23.rds")
+saveRDS(object = save_g_700, file = "C:/Users/elsac/Documents/ERA5/Data/geo.data/g_700_12pm_60_23.rds")
+saveRDS(object = save_g_850, file = "C:/Users/elsac/Documents/ERA5/Data/geo.data/g_850_12pm_60_23.rds")
+
+# Save temperature data
+saveRDS(object = save_t_300, file = "C:/Users/elsac/Documents/ERA5/Data/geo.data/t_300_12pm_60_23.rds")
+saveRDS(object = save_t_500, file = "C:/Users/elsac/Documents/ERA5/Data/geo.data/t_500_12pm_60_23.rds")
+saveRDS(object = save_t_700, file = "C:/Users/elsac/Documents/ERA5/Data/geo.data/t_700_12pm_60_23.rds")
+saveRDS(object = save_t_850, file = "C:/Users/elsac/Documents/ERA5/Data/geo.data/t_850_12pm_60_23.rds")
+```
+
+```{r message = FALSE, warning = FALSE}
+# Delete raw .csv and .nc data
+raw.csv <- "C:/Users/elsac/Documents/ERA5/Data/Raw.csv"
+raw.nc <- "C:/Users/elsac/Documents/ERA5/Data/Raw.nc"
+
+unlink(raw.csv, recursive = TRUE)
+unlink(raw.nc, recursive = TRUE)
+```

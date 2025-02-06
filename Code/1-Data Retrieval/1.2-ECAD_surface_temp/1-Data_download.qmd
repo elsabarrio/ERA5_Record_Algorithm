@@ -1,0 +1,68 @@
+---
+title: "Download_ECAD_raw_data"
+format: html
+editor: visual
+---
+
+## Download maximum temperature data from the ECA&D portal
+
+Here we show how to download maximum surface temperature data from the ECA&D portal. This data will serve as the predictor variable when constructing the models.
+
+## Downloading
+
+Download maximum surface temperature data for European stations.
+
+```{r message = FALSE, warning = FALSE}
+# Set working directory
+setwd("C:/Users/elsac/Documents/ERA5")
+
+# Set data directory
+data_dir <- file.path(getwd(),"Data")
+if(!dir.exists(data_dir)) stop("data_dir not found")
+
+# Download Tmax dataset from ECA
+# Increase timeout time
+getOption("timeout")
+options(timeout=600)
+
+# Follow: https://stackoverflow.com/questions/3053833/using-r-to-download-zipped-data-file-extract-and-import-data
+# Space for 650.5MB will be required (2024-05-08)
+tmp_dir <- tempdir()
+if(!file.exists(tmp_dir)) dir.create(path = tmp_dir, recursive = T)
+tmp_file <- file.path(tmp_dir,"ECA_blend_tx.zip")
+download.file(url = "https://knmi-ecad-assets-prd.s3.amazonaws.com/download/ECA_blend_tx.zip",
+              destfile = tmp_file)
+
+# Get list of zipped files
+# https://stackoverflow.com/a/32871141
+zip_ls <- unzip(tmp_file, list=TRUE)$Name
+head(zip_ls)
+# Get number ID
+num_ls <- grep("TX_STAID", zip_ls)
+num_id <- sapply(num_ls, function(x) unlist(strsplit(zip_ls[x],"TX_STAID")[[1]][2]))
+num_id <- as.integer(sapply(1:length(num_id), function(x) unlist(strsplit(num_id[x],".txt")[[1]][1])))
+
+```
+
+## Keep stations of interest
+
+Now we want to keep only the data from 36 stations of interest from the Iberian Peninsula. The inclusion of these stations is based on previous work. These stations were chosen instead of other Spanish stations due to lower rates of missing values. This analysis is not covered in this work, but a similar process is easily applicable to other countries.
+
+```{r message = FALSE, warning = FALSE}
+
+# Read list of observatories of interest. Based on previous work.
+stations <- read.csv(file.path(data_dir,"geo_peninsula_zones.csv"))
+
+# Find the ones already in the stations data.frame and copy
+raw_dir <- file.path(data_dir, "Raw", "Tx")
+if(!dir.exists(raw_dir)) dir.create(path = raw_dir, recursive = T)
+
+# Extract files of interest
+# Info file
+unzip(zipfile = tmp_file,
+      files = zip_ls[num_ls[match(stations$STAID, num_id)]],
+      exdir = raw_dir)
+
+# Delete temporary directory
+unlink(tmp_dir, recursive = T)
+```

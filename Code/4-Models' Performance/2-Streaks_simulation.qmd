@@ -1,0 +1,312 @@
+---
+title: "2-Streaks_simulation"
+format: html
+editor: visual
+---
+
+## Streaks simulation
+
+```{r}
+
+# Clear workspace
+rm(list = ls())
+
+# Set working directory
+wd <- "C:/Users/elsac/Documents/Excess.records"
+
+# Set data directory
+data_dir <- file.path(wd,"Data")
+if(!dir.exists(data_dir)) stop("data_dir not found")
+
+# Read list of observatories of interest. Based on previous work.
+stations <- read.csv(file.path(data_dir,"geo_peninsula_zones.csv"))
+
+# Read record data
+excess.records <- read.csv(file = file.path(data_dir,'record.data/record.matrix.csv'))
+
+# Reshape data
+LL <- 92
+TT <- nrow(excess.records)/92
+SS <- nrow(stations)
+itx3d <- array(data = as.matrix(excess.records[,-1]), dim = c(LL,TT,SS))
+
+# Reorder dimensions
+itx3d <- aperm(itx3d, c(2, 1, 3))
+
+# Do not consider (for now) more than one station from Madrid
+stations$STANAME[which(is.na(stations$Zona))]
+idx <- which(!is.na(stations$Zona))
+stations <- stations[idx,]
+itx3d <- itx3d[,,idx]
+voldim <- dim(itx3d)
+
+# Remove NAs
+if(sum(is.na(itx3d))>0) itx3d[is.na(itx3d)] <- 0
+
+# Modify Barcelona-Airport label
+stations$STANAME[10] <- "FABRA OBSERVATORY                       "
+stations$STANAME[25] <- "BCN/AEROPUERTO                          "
+stations$abb <- substr(stations$STANAME,1,6)
+
+```
+
+## Save record streaks
+
+```{r}
+# Create a function to calculate the runs of ones and their corresponding days
+count_ones_runs_with_days <- function(series) {
+  runs <- rle(series)
+  ones_runs <- runs$lengths[runs$values == 1]
+  cumulative_lengths <- cumsum(runs$lengths)
+  start_days <- c(1, cumulative_lengths[-length(cumulative_lengths)] + 1)
+  end_days <- cumulative_lengths
+  ones_start_days <- start_days[runs$values == 1]
+  ones_end_days <- end_days[runs$values == 1]
+  return(list(lengths = ones_runs, start_days = ones_start_days, end_days = ones_end_days))
+}
+
+# Apply the function for each year and station
+results <- array(list(), dim = c(64, 36))
+
+for (year in 1:64) {
+  for (station in 1:36) {
+    series <- itx3d[year, , station]
+    results[[year, station]] <- count_ones_runs_with_days(series)
+  }
+}
+
+colnames(results) <- stations$STAID
+
+# View an example of the results for the first year and the first station
+print(results[[64,1]])
+
+#saveRDS(file = "Results/Streaks/streaks.counts.RDS", results)
+```
+
+## True streaks plot with confidence intervals
+
+```{r}
+# Read models predict
+predict.df <- read.csv2(file.path(wd,"Results/M2.predict.csv"))
+
+# Define number of stations
+lon.stat <- 36
+
+# Read the real streaks
+res.true <- results
+
+# Create empty matrix to fill with the true probabilities
+true.probs <- matrix(0, nrow = lon.stat, ncol = 5)
+
+# Create a loop to obtain the probabilities of different streaks lengths
+# per station for all the test period
+for (stat in 1:ncol(res.true)){
+  aux.streaks <- vector('numeric')
+  for(year in min(predict.df$t):max(predict.df$t)){
+    aux.streaks <- c(aux.streaks, res.true[[year,stat]]$lengths)
+  }
+  
+  table.prob <- table(aux.streaks)/sum(table(aux.streaks))
+  
+  idx.num <- which(names(table.prob) == 1)
+  if (length(idx.num) > 0) true.probs[stat,1] <- table.prob[idx.num]
+  
+  idx.num <- which(names(table.prob) == 2)
+  if (length(idx.num) > 0) true.probs[stat,2] <- table.prob[idx.num]
+  
+  idx.num <- which(names(table.prob) == 3)
+  if (length(idx.num) > 0) true.probs[stat,3] <- table.prob[idx.num]
+  
+  idx.num <- which(names(table.prob) == 4)
+  if (length(idx.num) > 0) true.probs[stat,4] <- table.prob[idx.num]
+  
+  idx.num <- which(names(table.prob) >= 5)
+  if (length(idx.num) > 0) true.probs[stat,5] <- sum(table.prob[idx.num])
+  
+  
+}
+
+# Create a data frame and add the errors for the streaks probabilities
+mat.true.errors <- matrix(ncol = 2, nrow = 5)
+colnames(mat.true.errors) <- c("t.min","t.max")
+rownames(mat.true.errors) <- c("1","2","3","4","5")
+
+for (i in 1:nrow(mat.true.errors)) mat.true.errors[i,] <- quantile(true.probs[,i], probs = c(0.025,0.975))
+
+# Now add the true probabilities to the data frame
+true.df <- as.data.frame(mat.true.errors)
+true.df$true.probs <- apply(true.probs, 2, mean)
+true.df$value <- 1:5
+
+# Now create a plot to show the true probabilities with their error bars
+library(ggplot2)
+g.plot.true <- ggplot(true.df, aes(x = value, y = true.probs)) +
+  geom_point(aes(color = "True"), shape = 4, size = 3, stroke = 1) +
+  geom_errorbar(aes(ymin = t.min, ymax = t.max, color = "True"), width = 0) +
+  ggtitle("All stations") +
+  xlab("Duration") +
+  ylab("Probability density") +
+  scale_color_manual(name = "",values = c("True" = "black")) +
+  theme_minimal() +
+  theme(
+    legend.position = c(0.95, 0.95),
+    legend.justification = c("right", "top"), 
+    plot.title = element_text(hjust = 0.5)
+  )
+
+g.plot.true
+```
+
+## Simulation of streaks using the M2 model's predict
+
+```{r}
+# Now make simulated probabilities using a certain model
+
+# Define needed variables
+lon.all <- length(predict.df$predict.test)
+lon.year.test <- length(table(predict.df$t))
+lon.day <- 92
+lon.indiv <- lon.all/lon.stat
+lon.sim <- 1000
+
+# Re-dimension predictions
+pred.test.3d <- array(data = as.matrix(predict.df$predict.test), dim = c(lon.day,lon.year.test,lon.stat))
+
+# Create empty array to add simulated probabilities
+res.sim <- array(list(), dim = c(lon.stat,lon.sim, lon.year.test))
+
+source(file.path(wd,"R/count_ones_runs_with_days.R"))
+
+# Streak simulation
+idx.stat.first <- 1
+idx.stat.last <- lon.indiv
+for (stat in 1:lon.stat){
+  print(stat)
+  for (i in 1:lon.sim){
+    random.prob <- runif(lon.indiv)
+    random.records <- as.numeric(predict.df$predict.test[idx.stat.first:idx.stat.last] > random.prob)
+    for (j in 1:lon.year.test){
+      idx.initial <- 1 + (j-1) * lon.day
+      idx.fin <- j*lon.day 
+      streaks.all <- count_ones_runs_with_days(random.records[idx.initial:idx.fin])$lengths
+      res.sim[[stat,i,j]] <- streaks.all
+    }
+  }
+  idx.stat.first <- idx.stat.first + lon.indiv
+  idx.stat.last <- idx.stat.last + lon.indiv
+}
+ 
+
+# Create empty array for simulated probabilities
+sim.probs <- array(0, dim = c(lon.stat,  5, lon.sim))
+
+# Create loop to obtain simulated probabilities
+for (sim in 1:lon.sim){
+  
+  for (stat in 1:lon.stat){
+    
+    aux.streaks <- vector('numeric')
+    
+    for(year in 1:lon.year.test){
+      
+      aux.streaks <- c(aux.streaks, res.sim[[stat, sim, year]])
+    }
+    
+    table.prob <- table(aux.streaks)/sum(table(aux.streaks))
+    
+    idx.num <- which(names(table.prob) == 1)
+    if (length(idx.num) > 0) sim.probs[stat,1,sim] <- table.prob[idx.num]
+    
+    idx.num <- which(names(table.prob) == 2)
+    if (length(idx.num) > 0) sim.probs[stat,2,sim] <- table.prob[idx.num]
+    
+    idx.num <- which(names(table.prob) == 3)
+    if (length(idx.num) > 0) sim.probs[stat,3,sim] <- table.prob[idx.num]
+    
+    idx.num <- which(names(table.prob) == 4)
+    if (length(idx.num) > 0) sim.probs[stat,4,sim] <- table.prob[idx.num]
+    
+    idx.num <- which(names(table.prob) >= 5)
+    if (length(idx.num) > 0) sim.probs[stat,5,sim] <- sum(table.prob[idx.num])
+    
+    
+  }}
+
+# Calculate the confidence intervals for the simulated probabilities
+sim.errors <- apply(sim.probs, c(2,3), quantile,probs = c(0.025,0.975))
+sim.errors.avg <- apply(sim.errors, c(1,2), mean)
+
+# Calculate the values for the simulated probabilities
+sim.probs.avg <- apply(sim.probs, 2, mean)
+
+# Create a data frame and add the errors for the simulated streaks probabilities
+sim.errors.df <- data.frame(s.min = sim.errors.avg[1,],
+                            s.max = sim.errors.avg[2,],
+                            sim.prob = sim.probs.avg,
+                            value = 1:5)
+
+# Now create a plot to show the simulated probabilities with their error bars
+library(ggplot2)
+g.plot.sim <- ggplot(sim.errors.df, aes(x = value, y = sim.prob)) +
+  geom_point(aes(color = "Simulated") , shape = 21,fill = "blue", color = "blue",size = 2) +
+  geom_errorbar(aes(ymin = s.min, ymax = s.max, color = "Simulated"), width = 0) +
+  ggtitle("All stations") +
+  xlab("Duration") +
+  ylab("Probability density") +
+  scale_color_manual(name = "",values = c("Simulated" = "blue")) +
+  theme_minimal() +
+  theme(
+    legend.position = c(0.95, 0.95),
+    legend.justification = c("right", "top"), 
+    plot.title = element_text(hjust = 0.5)
+  )
+g.plot.sim
+```
+
+## Create plot with real streaks and simulated ones
+
+```{r}
+# Now combine both plots into one
+
+# Define a small displacement value
+displacement <- 0.15
+
+combined_plot <- ggplot() +
+  # Simulated data (with displacement)
+  geom_point(data = sim.errors.df, aes(x = value + displacement, y = sim.prob, color = "Simulated"), shape = 21, fill = "blue", size = 2) +
+  geom_errorbar(data = sim.errors.df, aes(x = value + displacement, ymin = s.min, ymax = s.max, color = "Simulated"), width = 0) +
+  # True data (no displacement)
+  geom_point(data = true.df, aes(x = value, y = true.probs, color = "True"), shape = 4, size = 3, stroke = 1) +
+  geom_errorbar(data = true.df, aes(x = value, ymin = t.min, ymax = t.max, color = "True"), width = 0) +
+  # Titles and labels
+  ggtitle("Streaks probabilities M2 model") +
+  xlab("Duration") +
+  ylab("Probability density") +
+  # Custom colors for legend
+  scale_color_manual(name = "", values = c("Simulated" = "blue", "True" = "black")) +
+  # Themes and legend positioning
+  theme_minimal() +
+  theme(
+    # Adjust legend size and position
+    legend.position = c(0.60, 0.85),
+    legend.text = element_text(size = 15),
+    # Adjust axis text size
+    axis.text = element_text(size = 15),
+    # Adjust axis title size
+    axis.title = element_text(size = 15),
+    # Adjust plot title size
+    plot.title = element_text(size = 20, face = "bold", hjust = 0.5)
+  )
+
+# Print the combined plot
+print(combined_plot)
+```
+
+## Save final plot
+
+```{r}
+# Save M2 model's predict
+if (!file.exists(file.path(wd, 'Results/Sreaks.simulation.pdf'))) {
+    ggsave(filename = file.path(wd, 'Results/Sreaks.simulation.pdf'), plot = combined_plot, device = 'pdf', width = 6, height = 4)
+}
+```

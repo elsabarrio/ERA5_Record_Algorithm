@@ -1,0 +1,128 @@
+---
+title: "1-AUC"
+format: pdf
+editor: visual
+---
+
+In this document we create an AUC plot with the
+
+# AUC plot
+
+```{r}
+# Clear workspace
+rm(list = ls())
+
+# Set working directory
+wd <- "C:/Users/elsac/Documents/Excess.records"
+
+# Set data directory
+data_dir <- file.path(wd,"Data")
+if(!dir.exists(data_dir)) stop("data_dir not found")
+
+# Read list of observatories of interest. Based on previous work.
+stations <- read.csv(file.path(data_dir,"geo_peninsula_zones.csv"))
+
+# Do not consider (for now) more than one station from Madrid
+stations$STANAME[which(is.na(stations$Zona))]
+idx <- which(!is.na(stations$Zona))
+stations <- stations[idx,]
+
+# Modify Barcelona-Airport label
+stations$STANAME[10] <- "FABRA OBSERVATORY                       "
+stations$STANAME[25] <- "BCN/AEROPUERTO                          "
+
+# Create station names abbreviations
+stations$abb <- substr(stations$STANAME,1,6)
+
+# Read AUC from local models and global models
+local.auc <- read.csv2(file = file.path(wd, 'Results/local.AUC.csv'))
+global.auc <- read.csv2(file = file.path(wd, 'Results/global.AUC.csv'), header = TRUE)
+
+# Adapt data frames
+global.auc <- global.auc[,-1]
+colnames(global.auc) <- gsub('X', '', colnames(global.auc))
+global.auc <- as.data.frame(t(global.auc))
+local.auc <- local.auc[,-1]
+local.auc <- as.data.frame(t(local.auc))
+
+# Create final data frame with AUC values
+AUC.df <- data.frame(abb = stations$abb)
+AUC.df$M0 <- local.auc$V2[match(stations$abb, local.auc$V1)]
+AUC.df$M0 <- as.numeric(AUC.df$M0)
+AUC.df$M1 <- global.auc$V1[match(stations$STAID, rownames(global.auc))]
+AUC.df$M2 <- global.auc$V2[match(stations$STAID, rownames(global.auc))]
+AUC.df$M3 <- global.auc$V3[match(stations$STAID, rownames(global.auc))]
+AUC.df$M4 <- global.auc$V4[match(stations$STAID, rownames(global.auc))]
+
+```
+
+```{r}
+# Load libraries
+if(!is.element("ggplot2", row.names(installed.packages()))) install.packages("ggplot2")
+library(ggplot2)
+if(!is.element("gridExtra", row.names(installed.packages()))) install.packages("gridExtra")
+library(gridExtra)
+if(!is.element("RColorBrewer", row.names(installed.packages()))) install.packages("RColorBrewer")
+library(RColorBrewer)
+
+# Plot
+colorcito <- brewer.pal(n = 8, name = "Set1")
+
+# Add coast dist to AUC dataframe and order from closest to the coast to furthest
+AUC.df$CoastDist <- stations$CoastDist
+AUC.final <- AUC.df[order(AUC.df$CoastDist),]
+
+# Define x labels
+x_labels <- AUC.final$abb
+
+# Create plot with M0, M1 and M2 models
+g1 <- ggplot(data = AUC.final, aes(x = 1:nrow(AUC.final))) +
+  geom_point(aes(y = M0, color = "M0"), na.rm = TRUE, shape = 15, size = 3) +
+  geom_point(aes(y = M1, color = "M1"), na.rm = TRUE, shape = 16, size = 3) +
+  geom_point(aes(y = M2, color = "M2"), na.rm = TRUE, shape = 17, size = 3) +
+  labs(title = "Comparison of AUCs of final models",
+       y = "AUC",
+       x = "Station") +
+  scale_color_manual(name = "Model",
+                     breaks = c("M0","M1","M2"),
+                     values = c("M0" = colorcito[1],
+                                "M1" = colorcito[2],
+                                "M2" = colorcito[3])) +
+  scale_x_discrete(labels = x_labels, limits = factor(1:length(x_labels))) + 
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 55, hjust = 1,  face = "bold")) +
+  geom_vline(xintercept = 16.5, linetype = "dashed", color = "black", linewidth = 0.5)
+
+show(g1)
+
+# Save plot
+if (!file.exists(file.path(wd, 'Results/AUC.M0.M1.M2.pdf'))) {
+    ggsave(filename = file.path(wd, 'Results/AUC.M0.M1.M2.pdf.pdf'), plot = g1, device = 'pdf', width = 6, height = 4)
+}
+```
+
+```{r}
+g2 <- ggplot(data = AUC.final, aes(x = 1:nrow(AUC.final))) +
+  geom_point(aes(y = M2, color = "M2"), na.rm = TRUE, shape = 17, size = 3) +
+  geom_point(aes(y = M3, color = "M3"), na.rm = TRUE, shape = 18, size = 3) +
+  geom_point(aes(y = M4, color = "M4"), na.rm = TRUE, shape = 19, size = 3) +
+  labs(title = "Comparison of AUCs of final models",
+       y = "AUC",
+       x = "Station") +
+  scale_color_manual(name = "Model",
+                     breaks = c("M2","M3","M4"),
+                     values = c("M2" = colorcito[3],
+                                "M3" = colorcito[4],
+                                "M4" = colorcito[5])) +
+  scale_x_discrete(labels = x_labels, limits = factor(1:length(x_labels))) + 
+  theme_bw() +
+  theme(axis.text.x = element_text(angle = 55, hjust = 1,  face = "bold")) +
+  geom_vline(xintercept = 16.5, linetype = "dashed", color = "black", size = 0.5)
+
+show(g2)
+
+# Save plot
+if (!file.exists(file.path(wd, 'Results/AUC.M2.M3.M4.pdf'))) {
+    ggsave(filename = file.path(wd, 'Results/AUC.M2.M3.M4..pdf.pdf'), plot = g2, device = 'pdf', width = 6, height = 4)
+}
+```

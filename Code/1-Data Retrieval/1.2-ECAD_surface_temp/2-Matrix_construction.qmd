@@ -1,0 +1,73 @@
+---
+title: "2-Matrix_construction"
+format: html
+editor: visual
+---
+
+## Construct a matrix with maximum temperature data for all stations
+
+In this code we are going to construct a matrix for the maximum temperature series of all stations and save it in a folder called tx.data inside the Data folder.
+
+```{r message = FALSE, warning = FALSE}
+
+# Set working directory
+setwd("C:/Users/elsac/Documents/ERA5")
+
+# Set data directory
+data_dir <- file.path(getwd(),"Data")
+if(!dir.exists(data_dir)) stop("data_dir not found")
+
+# Read list of observatories of interest. Based on previous work.
+stations <- read.csv("Data/geo_peninsula_zones.csv")
+
+#Extract all the files in the folder Iberia_TX from that correspond to the data from each station
+tx_ls <- list.files(path = file.path(data_dir, "Raw", "Tx"),
+                    full.names = TRUE)
+
+# Create empty data.frame
+# Daily date range
+target_date <- seq(from = as.Date("1960-01-01"),
+                   to = as.Date("2023-12-31"),
+                   by = "day")
+tail(target_date)
+target_date <- target_date[grep("-02-29", target_date,invert = T)]
+# Output file
+tx_mat <- as.data.frame(matrix(data = as.numeric(NA),
+                 nrow = length(target_date),
+                 ncol = nrow(stations)))
+tx_mat <- cbind(target_date, tx_mat)
+names(tx_mat) <- c("Date", stations$STAID)
+
+# Get data
+cat("/n")
+for(ii in 1:length(tx_ls)){
+  cat(paste0("..",ii))
+  # Read file
+  aux <- read.csv(file = tx_ls[ii], skip = 19)
+  # Remove scores without good label data (0)
+  nozero <- which(aux$Q_TX != 0 | aux$TX == -9999)
+  if(length(nozero)>0) aux$TX[nozero] <- NA
+  # Take the days of interest
+  aux$DATE <- as.Date(strptime(aux$DATE,"%Y%m%d"))
+  tx_mat[,ii+1] <- aux$TX[match(tx_mat$Date, aux$DATE)]
+}
+cat("\n")
+
+# Create folder to save the data if it does not exist
+outdir <- "C:/Users/elsac/Documents/ERA5/Data/tx.data/"
+if (!dir.exists(outdir)) {dir.create(outdir)}
+
+#Save matrix
+library(data.table)
+fwrite(x = tx_mat, file = file.path(outdir, "Tx_mat.csv"))
+```
+
+Now delete the folder with the raw data.
+
+```{r message = FALSE, warning = FALSE}
+
+# Delete raw data
+raw <- "C:/Users/elsac/Documents/ERA5/Data/Raw"
+
+unlink(raw, recursive = TRUE)
+```
