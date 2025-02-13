@@ -10,9 +10,6 @@ In this code we are going to construct a matrix for the maximum temperature seri
 
 ```{r message = FALSE, warning = FALSE}
 
-# Set working directory
-setwd("C:/Users/elsac/Documents/ERA5")
-
 # Set data directory
 data_dir <- file.path(getwd(),"Data")
 if(!dir.exists(data_dir)) stop("data_dir not found")
@@ -54,7 +51,7 @@ for(ii in 1:length(tx_ls)){
 cat("\n")
 
 # Create folder to save the data if it does not exist
-outdir <- "C:/Users/elsac/Documents/ERA5/Data/tx.data/"
+outdir <- "Data/tx.data/"
 if (!dir.exists(outdir)) {dir.create(outdir)}
 
 #Save matrix
@@ -67,7 +64,7 @@ Now delete the folder with the raw data.
 ```{r message = FALSE, warning = FALSE}
 
 # Delete raw data
-raw <- "C:/Users/elsac/Documents/ERA5/Data/Raw"
+raw <- "Data/Raw"
 
 unlink(raw, recursive = TRUE)
 ```

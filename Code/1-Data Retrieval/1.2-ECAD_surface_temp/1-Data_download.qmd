@@ -13,8 +13,6 @@ Here we show how to download maximum surface temperature data from the ECA&D por
 Download maximum surface temperature data for European stations.
 
 ```{r message = FALSE, warning = FALSE}
-# Set working directory
-setwd("C:/Users/elsac/Documents/ERA5")
 
 # Set data directory
 data_dir <- file.path(getwd(),"Data")
@@ -30,8 +28,7 @@ options(timeout=600)
 tmp_dir <- tempdir()
 if(!file.exists(tmp_dir)) dir.create(path = tmp_dir, recursive = T)
 tmp_file <- file.path(tmp_dir,"ECA_blend_tx.zip")
-download.file(url = "https://knmi-ecad-assets-prd.s3.amazonaws.com/download/ECA_blend_tx.zip",
-              destfile = tmp_file)
+download.file(url = "https://knmi-ecad-assets-prd.s3.amazonaws.com/download/ECA_blend_tx.zip", destfile = tmp_file)
 
 # Get list of zipped files
 # https://stackoverflow.com/a/32871141
