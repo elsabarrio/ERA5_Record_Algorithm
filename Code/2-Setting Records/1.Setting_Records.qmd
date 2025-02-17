@@ -6,7 +6,8 @@ editor: visual
 
 ## Setting records
 
-Set the records from maximum temperature series based on the 95% percentile threshold value at each station. To calculate these values, the period of 1981-2010 is used.
+Set the records from maximum temperature series based on the day within year
+record at each station.
 
 ### Read maximum temperature data
 
@@ -15,40 +16,46 @@ Set the records from maximum temperature series based on the 95% percentile thre
 rm(list = ls())
 
 # Read the data for maximum temperatures
-tx.mat <- read.csv("C:/Users/elsac/Documents/Excess.records/Data/tx.data/Tx_mat.csv", header = TRUE)
+tx.mat <- read.csv("../../Data/tx.data/Tx_mat.csv", header = TRUE)
 
 # Ensure the Date column is in Date format
 tx.mat$Date <- as.Date(tx.mat$Date)
+
+# Read list of observatories of interest. Based on previous work.
+stations <- read.csv("../../Data/geo_peninsula_zones.csv")
+idx <- which(!is.na(stations$Zona))
+stations <- stations[idx,]
 ```
 
-### Calculate threshold values
+### Calculate record indicators
 
-Let's calculate the threshold value (95% percentile) for each station.
+Let's calculate daily records indicators.
 
 ```{r}
-# Calculate the 95th percentile for each station using the 1991-2020 data for June, July, and August
-thresholds <- apply(tx.mat[format(tx.mat$Date, "%Y") >= 1981 & format(tx.mat$Date, "%Y") <= 2010 & 
-                         format(tx.mat$Date, "%m") %in% c("06", "07", "08"), -1], 2, 
-                    function(x) quantile(x, 0.95, na.rm = TRUE))
+
+# Reshape data into volume
+LL <- 365
+TT <- nrow(tx.mat)/LL
+SS <- nrow(stations)
+tx3d <- array(data = as.matrix(tx.mat[,-1]), dim = c(LL,TT,SS))
+# Set seasons
+summer_idx <- c(152:243)
+
+# Compute upper records (indicators) for summer data only
+upp.rcrd <- function(x) c(1,as.numeric(diff(cummax(x))>0))
+itx3d <- apply(X = tx3d[summer_idx,,], MARGIN = c(1,3), upp.rcrd)
 
 ```
 
-### Set records
+### Reshape volume into matrix
 
-Now let's use the threshold values to set the records.
 
 ```{r}
 # Find dates of interest
 dates.idx <- which(format(tx.mat$Date, "%m") %in% c("06", "07", "08"))
 
-# Create matrix to calculate records
-A <- as.matrix(tx.mat[dates.idx, -1])
-
-# Apply the thresholds to all June, July, and August data (all years) and convert to 1s and 0s
-record.matrix<- array(as.integer(A > thresholds[col(A)]), dim = dim(A))
-
-# Convert record.matrix into a data frame
-record.df <- as.data.frame(record.matrix)
+# Reshape volume
+record.df <- as.data.frame(array(aperm(itx3d, c(2,1,3)), dim = c(length(dates.idx),SS)))
 
 # Adjust the colnames so that they do not contain X before the station id
 colnames(record.df) <- gsub(pattern = "X", replacement = "", x = colnames(tx.mat[-1]))
@@ -66,7 +73,7 @@ record.df <- record.df[, c(ncol(record.df), 1:(ncol(record.df) - 1))]
 ```{r}
 # Now save this record  matrix in the Data folder
 # Create folder if it does not exist
-outdir <- "C:/Users/elsac/Documents/Excess.records/Data/record.data"
+outdir <- "../../Data/record.data"
 # Check if the folder exists
 if (!dir.exists(outdir)) {
   # Create the folder if it doesn't exist
@@ -79,130 +86,11 @@ if (!file.exists(file.path(outdir,"record.matrix.csv"))) {
   write.csv(as.matrix(record.df), file = file.path(outdir,"record.matrix.csv"), row.names = FALSE)
 }
 
-```
-
-### Visualize threshold values
-
-Now we want to visualize the threshold values in a map of the Iberian Peninsula. Let's read the information about the stations first
-
-```{r}
-# Read the data for stations
-stations <- read.csv("C:/Users/elsac/Documents/Excess.records/Data/geo_peninsula_zones.csv")
-
-# Check what threshold corresponds to each station
-staid.threshold <- gsub(pattern = "X", replacement = "", x = names(thresholds))
-
-# Add the thresholds to the stations data frame
-stations$threshold <- round(thresholds[match(stations$STAID,staid.threshold)]/10,1)
-
-# Now we only want to keep one station from Madrid
-# Do not consider (for now) more than one station from Madrid
-stations$STANAME[which(is.na(stations$Zona))]
-# Get indices for the stations that have NA in the column Zona
-idx <- which(!is.na(stations$Zona))
-# Remove stations
-stations <- stations[idx,]
-
-# We are going to abbreaviate the names of the stations to be able to show them in map
-# Create function to extract first word from a string of characters
-extract_first_word <- function(name) {
-  pos <- regexpr("[ /-]", name)
-  if (pos[1] > 0) {
-    return(substr(name, 1, pos[1] - 1))
-  } else {
-    return(name)
-  }
+# Check if the file already exists
+if (!file.exists(file.path(outdir,"recordvol.rds"))) {
+  # Save the record volume
+  saveRDS(itx3d, file = file.path(outdir,"recordvol.rds"))
 }
 
-# Create new column with abbreviated names using the function we just created
-stations$abb <- sapply(stations$STANAME, extract_first_word)
 
-# Adjust some of the names manually
-stations$abb[which(stations$abb == "A")] <- "A CORUÑA"
-stations$abb[which(stations$abb == "CIUDAD")] <- "CIUDAD REAL"
-stations$abb[which(stations$abb == "SAN")] <- "SAN SEBASTIAN"
-stations$abb[which(stations$abb == "BCN")] <- "BARCELONA"
-
-# Set the firs letter to capital letters
-stations$abb <- paste0(toupper(substring(stations$abb, 1, 1)), tolower(substring(stations$abb, 2)))
-```
-
-Now we can create two plots, one where the names of each station is shown, and another one where the threshold values are shown.
-
-```{r}
-# Now we create a map of the plot with the threshold values
-
-# Load libraries
-if (!require(ggplot2)) {
-  install.packages("ggplot2")
-  library(ggplot2)
-}
-
-if (!require(maps)) {
-  install.packages("maps")
-  library(maps)
-}
-
-if (!require(rnaturalearth)) {
-  install.packages("rnaturalearth")
-  library(rnaturalearth)
-}
-
-if (!require(rnaturalearthdata)) {
-  install.packages("rnaturalearthdata")
-  library(rnaturalearthdata)
-}
-
-if (!require(ggrepel)) {
-  install.packages("ggrepel")
-  library(ggrepel)
-}
-
-if (!require(gridExtra)) {
-  install.packages("gridExtra")
-  library(gridExtra)
-}
-
-# Get the map of the countries that will be shown in the map
-spain <- ne_countries(scale = "medium", returnclass = "sf", country = "Spain")
-portugal <- ne_countries(scale = "medium", returnclass = "sf", country = "Portugal")
-france <- ne_countries(scale = "medium", returnclass = "sf", country = "France")
-morocco <- ne_countries(scale = "medium", returnclass = "sf", country = "Morocco")
-algeria <- ne_countries(scale = "medium", returnclass = "sf", country = "Algeria")
-
-# Now combine them
-iberian.peninsula <- rbind(france, spain, portugal, morocco, algeria)
-
-# Plot the map with the data points and values
-g.threshold <- ggplot() +
-  geom_sf(data = iberian.peninsula, fill = "white", color = "black") +  # Plot Spain map
-  geom_point(data = stations, aes(x = LON, y = LAT), size = 1) +
-  geom_text_repel(data = stations, aes(x = LON, y = LAT, label = threshold), size = 3) +  # Plot points
-  scale_color_gradient(low = "blue", high = "red") +  # Adjust color gradient for 'value'
-  labs(title = "Threshold values", x = "Longitude", y = "Latitude", color = "Threshold", size = "Threshold") +
-  coord_sf(xlim = c(-10, 5), ylim = c(35, 45)) +
-  theme_minimal()
-
-# Create the plot with the stations labels
-g.labels <- ggplot() +
-  geom_sf(data = iberian.peninsula, fill = "white", color = "black") +  # Plot Spain map
-  geom_point(data = stations, aes(x = LON, y = LAT), size = 1) +
-  geom_text_repel(data = stations, aes(x = LON, y = LAT, label = abb), size = 3) +  # Plot points
-  scale_color_gradient(low = "blue", high = "red") +  # Adjust color gradient for 'value'
-  labs(title = "Spanish Stations", x = "Longitude", y = "Latitude", color = "Threshold", size = "Threshold") +
-  coord_sf(xlim = c(-10, 5), ylim = c(35, 45)) +
-  theme_minimal()
-
-# Now combine both plots in the same frame
-threshold.map <- grid.arrange(g.labels, g.threshold, ncol = 2)  # Arrange side by side (2 columns)
-
-```
-
-### Save plot
-
-```{r}
-# Save plot
-ggsave(filename = "records.thresholds.map.pdf", plot = threshold.map, 
-       device = "pdf", path = "C:/Users/elsac/Documents/Excess.records/Results/Exploratory",
-       width = 12, height = 6)
 ```

@@ -14,7 +14,8 @@ Read the .csv files containing data geopotential hight at pressure levels of 300
 ```{r message = FALSE, warning = FALSE}
 
 # Set data directory
-data_dir <- file.path(getwd(),"Data/Raw.csv")
+data_dir <- "../../../Data/Raw.csv"
+if(!dir.exists(data_dir)) stop("Raw data not found or already removed")
 
 # Read .csv files for geopotential hight at pressure levels of 300hPa, 500hPa, 700hPa, and 850hPa.
 g_300 <- read.csv(file = file.path(data_dir,"geopotential300.csv"))
@@ -64,26 +65,26 @@ Now save the vectors created in .rds objects, and delete the folder with the raw
 ```{r message = FALSE, warning = FALSE}
 
 # Create folder to save the data if it does not exist
-outdir <- "Data/geo.data/"
+outdir <- "../../../Data/geo.data/"
 if (!dir.exists(outdir)) {dir.create(outdir)}
 
 # Save latitude, longitude, and date data 
-saveRDS(object = lon, file = "Data/geo.data/lon.rds")
-saveRDS(object = lat, file = "Data/geo.data/lat.rds")
-saveRDS(object = DATE, file = "Data/geo.data/Date.rds")
+saveRDS(object = lon, file = file.path(outdir,"lon.rds"))
+saveRDS(object = lat, file = file.path(outdir,"lat.rds"))
+saveRDS(object = DATE, file = file.path(outdir,"Date.rds"))
 
 # Save geopotential hight data
-saveRDS(object = save_g_300, file = "Data/geo.data/g_300_12pm_60_23.rds")
-saveRDS(object = save_g_500, file = "Data/geo.data/g_500_12pm_60_23.rds")
-saveRDS(object = save_g_700, file = "Data/geo.data/g_700_12pm_60_23.rds")
-saveRDS(object = save_g_850, file = "Data/geo.data/g_850_12pm_60_23.rds")
+saveRDS(object = save_g_300, file = file.path(outdir,"g_300_12pm_60_23.rds"))
+saveRDS(object = save_g_500, file = file.path(outdir,"g_500_12pm_60_23.rds"))
+saveRDS(object = save_g_700, file = file.path(outdir,"g_700_12pm_60_23.rds"))
+saveRDS(object = save_g_850, file = file.path(outdir,"g_850_12pm_60_23.rds"))
 
 ```
 
 ```{r message = FALSE, warning = FALSE}
 # Delete raw .csv and .nc data
-raw.csv <- "Data/Raw.csv"
-raw.nc <- "Data/Raw.nc"
+raw.csv <- "../../../Data/Raw.csv"
+raw.nc <- "../../../Data/Raw.nc"
 
 unlink(raw.csv, recursive = TRUE)
 unlink(raw.nc, recursive = TRUE)

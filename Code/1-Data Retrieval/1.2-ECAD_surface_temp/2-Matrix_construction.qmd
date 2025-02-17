@@ -11,11 +11,13 @@ In this code we are going to construct a matrix for the maximum temperature seri
 ```{r message = FALSE, warning = FALSE}
 
 # Set data directory
-data_dir <- file.path(getwd(),"Data")
+data_dir <- "../../../Data"
 if(!dir.exists(data_dir)) stop("data_dir not found")
 
 # Read list of observatories of interest. Based on previous work.
-stations <- read.csv("Data/geo_peninsula_zones.csv")
+stations <- read.csv(file.path(data_dir,"geo_peninsula_zones.csv"))
+idx <- which(!is.na(stations$Zona))
+stations <- stations[idx,]
 
 #Extract all the files in the folder Iberia_TX from that correspond to the data from each station
 tx_ls <- list.files(path = file.path(data_dir, "Raw", "Tx"),
@@ -51,7 +53,7 @@ for(ii in 1:length(tx_ls)){
 cat("\n")
 
 # Create folder to save the data if it does not exist
-outdir <- "Data/tx.data/"
+outdir <- file.path(data_dir,"tx.data")
 if (!dir.exists(outdir)) {dir.create(outdir)}
 
 #Save matrix
@@ -64,7 +66,7 @@ Now delete the folder with the raw data.
 ```{r message = FALSE, warning = FALSE}
 
 # Delete raw data
-raw <- "Data/Raw"
+raw <- file.path(data_dir, "Raw")
 
 unlink(raw, recursive = TRUE)
 ```

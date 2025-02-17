@@ -15,7 +15,7 @@ Download maximum surface temperature data for European stations.
 ```{r message = FALSE, warning = FALSE}
 
 # Set data directory
-data_dir <- file.path(getwd(),"Data")
+data_dir <- "../../../Data"
 if(!dir.exists(data_dir)) stop("data_dir not found")
 
 # Download Tmax dataset from ECA
@@ -49,6 +49,11 @@ Now we want to keep only the data from 36 stations of interest from the Iberian 
 
 # Read list of observatories of interest. Based on previous work.
 stations <- read.csv(file.path(data_dir,"geo_peninsula_zones.csv"))
+
+# Do not consider (for now) more than one station from Madrid
+stations$STANAME[which(is.na(stations$Zona))]
+idx <- which(!is.na(stations$Zona))
+stations <- stations[idx,]
 
 # Find the ones already in the stations data.frame and copy
 raw_dir <- file.path(data_dir, "Raw", "Tx")
