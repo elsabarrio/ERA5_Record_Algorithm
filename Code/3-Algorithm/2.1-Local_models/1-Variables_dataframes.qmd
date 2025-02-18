@@ -68,14 +68,21 @@ if(!dir.exists(outdir)){
   variable <- "g" # Define variable
   folder <- file.path(data_dir,"geo.data") # Define folder containing the raw data
   
+  # Load library
+  if(!is.element("data.table", row.names(installed.packages()))){
+      install.packages("data.table")
+    }
+  library(data.table)
+  
   # For each station
   for(ss in 1:length(stations$STANAME)){
-    ss <- 1
+    ss <- 2
     # Define all the inputs for the function
     sta_name <- stations$abb[ss] # Get station name
     sta_id <- stations$STAID[ss] # Get station ID
     
     # Create data frame for specific station using function
+    tic <- Sys.time()
     bin_df <-  atm_var_station(sta_name,
                                data_dir,
                                functions_dir,
@@ -85,7 +92,9 @@ if(!dir.exists(outdir)){
                                itx3d,
                                stations,
                                days)
-  
+    toc <- Sys.time()
+    print(toc-tic)
+    
     # Remove first year
     #bin_df <- bin_df[which(bin_df$t>1),]
     # Add trend (logistic)
@@ -94,10 +103,6 @@ if(!dir.exists(outdir)){
     bin_df$Ix.lag1 <- dplyr::lag(bin_df$Ix, 1, 0)
   
     # Save dataframe
-    if(!is.element("data.table", row.names(installed.packages()))){
-      install.packages("data.table")
-    }
-    library(data.table)
     fwrite(x = bin_df, file = file.path(outdir, paste0(sta_id,".df.csv")))
   
   }# for ss stations
