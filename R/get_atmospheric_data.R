@@ -1,7 +1,7 @@
 #' Get an array of data for an atmospheric variable
 #'
 #' @param folder_path Give the path of the folder where the data files are kept.
-#' @param time Give a specific time E.g."12pm" It has to be in between "" and have the 12-hour-clock format.
+#' @param ftime Give a specific time E.g."12pm" It has to be in between "" and have the 12-hour-clock format.
 #' @param variable Specify the variable "rh" for relative humidity, "g" for geopotential, "t" for temperature.
 #' @param geo_level Give a value of the pressure level without units, E.g "300".
 #' @param lat Give a value for latitude E.g 40.
@@ -13,38 +13,38 @@
 #' @examples
 #' get_atmospheric_data("C:/Users/elsac/Documents/ERA5-data/Data/geo.data/", "12pm", "rh", "300", 40, -10, c("06-01", "08-31"))
 #'
-get_atmospheric_data <- function(folder_path,time,variable,geo_level,lat,lon,days){
+get_atmospheric_data <- function(folder_path, ftime, variable, geo_level, lat, lon, days){
 
   # Find file name with given arguments
-  file_name <- paste0(variable, "_", geo_level, "_", time, "_60_23.rds")
+  file_name <- paste0(variable, "_", geo_level, "_", ftime, "_60_23.rds")
 
   # Read the variable data
-  variable <- readRDS(file.path(folder_path, file_name))
+  eravar <- readRDS(file.path(folder_path, file_name))
 
   # Read the latitude, longitude and date data
   latitudes  <- readRDS(file.path(folder_path, "lat.rds"))
   longitudes  <- readRDS(file.path(folder_path, "lon.rds"))
-  date <- readRDS(file.path(folder_path, "Date.rds"))
+  dates <- readRDS(file.path(folder_path, "Date.rds"))
 
   # Create a data frame joining the variable, latitude, longitude, and date data
-  df <- data.frame(v = variable,
-                   latitude = latitudes,
-                   longitude = longitudes,
-                   DATE = date)
+  new.df <- data.frame(v = eravar,
+                       latitude = latitudes,
+                       longitude = longitudes,
+                       DATE = dates)
 
   # Remove the 29ths of February
-  df$DATE <- as.Date(df$DATE, format = "%m/%d/%Y")
-  df <- subset(df, !(format(df$DATE, "%m-%d") == "02-29"))
+  new.df$DATE <- as.Date(new.df$DATE, format = "%m/%d/%Y")
+  new.df <- subset(new.df, !(format(new.df$DATE, "%m-%d") == "02-29"))
 
   # Select the data only for the data in between the days inputted
-  df <- subset(df, format(DATE, "%m-%d") >= days[1] & format(DATE, "%m-%d") <= days[2])
+  new.df <- subset(new.df, format(DATE, "%m-%d") >= days[1] & format(DATE, "%m-%d") <= days[2])
 
   # Select the data only for the latitude and longitude inputted
-  df <- subset(df, latitude == lat & longitude == lon)
+  new.df <- subset(new.df, latitude == lat & longitude == lon)
 
   # Keep only variable data in an array
-  data <- as.array(df$v)
+  new.data <- as.array(new.df$v)
 
   # Return variable data
-  return(data)
+  return(new.data)
 }

@@ -13,51 +13,33 @@ This piece of code created a folder called local.dataframes inside the Data fold
 The first step before constructing the data frames is to use maximum temperature data to obtain records as a binary variable that will serve as the target variable in the models.
 
 ```{r message = FALSE, warning = FALSE}
-
-# Set working directory
-wd <- "C:/Users/Usuario/Documents/Excess.records"
+# Clear workspace
+rm(list = ls())
 
 # Set data directory
-data_dir <- file.path(wd,"Data")
+data_dir <- "../../../Data"
 if(!dir.exists(data_dir)) stop("data_dir not found")
 
 # Read list of observatories of interest. Based on previous work.
 stations <- read.csv(file.path(data_dir,"geo_peninsula_zones.csv"))
+idx <- which(!is.na(stations$Zona))
+stations <- stations[idx,]
 
-# Read Tx data
-excess.records <- read.csv(file = file.path(data_dir,'record.data/record.matrix.csv'))
-
-# Reshape data
-LL <- 92
-TT <- nrow(excess.records)/92
-SS <- nrow(stations)
-itx3d <- array(data = as.matrix(excess.records[,-1]), dim = c(LL,TT,SS))
-
-# Reorder dimensions
-itx3d <- aperm(itx3d, c(2, 1, 3))
-
-# Remove NAs
-if(sum(is.na(itx3d))>0) itx3d[is.na(itx3d)] <- 0
+# Read records data
+itx3d <- readRDS(file = file.path(data_dir,"record.data","recordvol.rds"))
+voldim <- dim(itx3d)
 ```
 
 ## Refine station names
 
-Now we wanted to modify some of the names of the stations and abbreviate all of them for simplicity. We also only wanted to keep one station from Madrid.
+Now we wanted to modify some of the names of the stations and abbreviate all of them for simplicity.
 
 ```{r message = FALSE, warning = FALSE}
-
-# Do not consider (for now) more than one station from Madrid
-stations$STANAME[which(is.na(stations$Zona))]
-idx <- which(!is.na(stations$Zona))
-stations <- stations[idx,]
-itx3d <- itx3d[,,idx]
-voldim <- dim(itx3d)
 
 # Modify and stations names and create abbreviations
 stations$STANAME[10] <- "FABRA OBSERVATORY                       "
 stations$STANAME[25] <- "BCN/AEROPUERTO                          "
 stations$abb <- substr(stations$STANAME,1,6)
-stations$STANAME[which(stations$abb == "CACERE")] <- "CACERES"
 
 ```
 
@@ -68,47 +50,57 @@ The last step is to loop over each station and generate a data frame containing 
 ```{r message = FALSE, warning = FALSE}
 
 # Define functions directori
-functions_dir <- 'C:/Users/Usuario/Documents/Excess.records/R'
+functions_dir <- "../../../R"
 
 # Out directory
-outdir <- file.path(wd,"Data", "local.dataframes")
+outdir <- file.path(data_dir, "local.dataframes")
 if(!dir.exists(outdir)){
   
   # Create directory to save the dataframes
   dir.create(outdir, recursive = T)
   
   # Start loop if the folder does not already exist
-
-  for (i in 1:length(stations$STANAME)){
-  
   source(file.path(functions_dir,"atm_var_station.R"))
-  
-  # Define all the inputs for the function
+
+  # Define global inputs
   days <- c("06-01", "08-31") # Summer days
-  sta_name <- stations$abb[i] # Get station name
-  sta_id <- stations$STAID[i] # Get station ID
   altitudes <- c("300", "500", "700") # Define pressure levels
   variable <- "g" # Define variable
-  folder <- "C:/Users/Usuario/Documents/Excess.records/Data/geo.data" # Define folder containing the raw data
+  folder <- file.path(data_dir,"geo.data") # Define folder containing the raw data
   
-  # Create data frame for specific station using function
-  bin_df <-  atm_var_station(sta_name,data_dir,functions_dir,altitudes,variable,folder,itx3d,stations,days)
+  # For each station
+  for(ss in 1:length(stations$STANAME)){
+    ss <- 1
+    # Define all the inputs for the function
+    sta_name <- stations$abb[ss] # Get station name
+    sta_id <- stations$STAID[ss] # Get station ID
+    
+    # Create data frame for specific station using function
+    bin_df <-  atm_var_station(sta_name,
+                               data_dir,
+                               functions_dir,
+                               altitudes,
+                               variable,
+                               folder,
+                               itx3d,
+                               stations,
+                               days)
   
+    # Remove first year
+    #bin_df <- bin_df[which(bin_df$t>1),]
+    # Add trend (logistic)
+    bin_df$trend <- log(bin_df$t-1)
+    # Add lag1
+    bin_df$Ix.lag1 <- dplyr::lag(bin_df$Ix, 1, 0)
   
-  # Remove first year
-  #bin_df <- bin_df[which(bin_df$t>1),]
-  # Add trend (logistic)
-  bin_df$trend <- log(bin_df$t-1)
-  # Add lag1
-  bin_df$Ix.lag1 <- dplyr::lag(bin_df$Ix, 1, 0)
+    # Save dataframe
+    if(!is.element("data.table", row.names(installed.packages()))){
+      install.packages("data.table")
+    }
+    library(data.table)
+    fwrite(x = bin_df, file = file.path(outdir, paste0(sta_id,".df.csv")))
   
-  # Save dataframe
-  if(!is.element("data.table", row.names(installed.packages()))) install.packages("data.table")
-  library(data.table)
-
-  fwrite(x = bin_df, file = file.path(outdir, paste0(sta_id,".df.csv")))
-  
-  }
-}
+  }# for ss stations
+}# if outdir exists
 
 ```

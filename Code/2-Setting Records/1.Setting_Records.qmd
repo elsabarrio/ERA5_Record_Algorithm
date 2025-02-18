@@ -6,8 +6,7 @@ editor: visual
 
 ## Setting records
 
-Set the records from maximum temperature series based on the day within year
-record at each station.
+Set the records from maximum temperature series based on the day within year record at each station.
 
 ### Read maximum temperature data
 
@@ -38,6 +37,7 @@ LL <- 365
 TT <- nrow(tx.mat)/LL
 SS <- nrow(stations)
 tx3d <- array(data = as.matrix(tx.mat[,-1]), dim = c(LL,TT,SS))
+if(sum(is.na(tx3d))>0) tx3d[is.na(tx3d)] <- -9999
 # Set seasons
 summer_idx <- c(152:243)
 
@@ -48,7 +48,6 @@ itx3d <- apply(X = tx3d[summer_idx,,], MARGIN = c(1,3), upp.rcrd)
 ```
 
 ### Reshape volume into matrix
-
 
 ```{r}
 # Find dates of interest
@@ -91,6 +90,5 @@ if (!file.exists(file.path(outdir,"recordvol.rds"))) {
   # Save the record volume
   saveRDS(itx3d, file = file.path(outdir,"recordvol.rds"))
 }
-
 
 ```
