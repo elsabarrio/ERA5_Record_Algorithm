@@ -76,7 +76,7 @@ if(!dir.exists(outdir)){
   
   # For each station
   for(ss in 1:length(stations$STANAME)){
-    ss <- 2
+    ss <- 4
     # Define all the inputs for the function
     sta_name <- stations$abb[ss] # Get station name
     sta_id <- stations$STAID[ss] # Get station ID
