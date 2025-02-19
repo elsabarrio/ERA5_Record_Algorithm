@@ -6,61 +6,37 @@ editor: visual
 
 ## Data frames construction
 
-This piece of code created a folder called local.dataframes inside the Data folder containing 36 data frames (one for each station) with maximum temperature record and geopotential variables for the years between 1960-2023 in the summer months of June, July, and August. The columns of the data frames are the variables and the rows the days.
-
-## Setting records
-
-The first step before constructing the data frames is to use maximum temperature data to obtain records as a binary variable that will serve as the target variable in the models.
+This piece of code created a folder called 'grid_data' inside the 'Data' folder containing one dataframes (one for each grid point) of geopotential variables for the years between 1960-2023 in the summer months: June, July, and August. The columns of the data frames are the variables and the rows the days.
 
 ```{r message = FALSE, warning = FALSE}
-# Clear workspace
+
+# Clean workspace
 rm(list = ls())
 
 # Set data directory
 data_dir <- "../../../Data"
 if(!dir.exists(data_dir)) stop("data_dir not found")
 
-# Read list of observatories of interest. Based on previous work.
-stations <- read.csv(file.path(data_dir,"geo_peninsula_zones.csv"))
-idx <- which(!is.na(stations$Zona))
-stations <- stations[idx,]
-
-# Read records data
-itx3d <- readRDS(file = file.path(data_dir,"record.data","recordvol.rds"))
-voldim <- dim(itx3d)
-```
-
-## Refine station names
-
-Now we wanted to modify some of the names of the stations and abbreviate all of them for simplicity.
-
-```{r message = FALSE, warning = FALSE}
-
-# Modify and stations names and create abbreviations
-stations$STANAME[10] <- "FABRA OBSERVATORY                       "
-stations$STANAME[25] <- "BCN/AEROPUERTO                          "
-stations$abb <- substr(stations$STANAME,1,6)
-
-```
-
-## Saving data frames for each station
-
-The last step is to loop over each station and generate a data frame containing the data for all the variables for the summer season from 1960-2023 and save them as .csv. These will be used to construct a local model for each station.
-
-```{r message = FALSE, warning = FALSE}
-
-# Define functions directori
+# Set functions directory
 functions_dir <- "../../../R"
 
 # Out directory
-outdir <- file.path(data_dir, "local.dataframes")
+outdir <- file.path(data_dir, "grid_data")
 if(!dir.exists(outdir)){
   
   # Create directory to save the dataframes
   dir.create(outdir, recursive = T)
   
+  # Read the LAT and LON available in our atmospheric variables
+  lat <- readRDS(file = file.path(data_dir,"geo.data/lat.rds"))
+  lon <- readRDS(file = file.path(data_dir,"geo.data/lon.rds"))
+  
+  # Find the avaliable grid points
+  aux_df <- data.frame(latitude = c(lat), longitude = c(lon))
+  grid_points <- unique(aux_df)
+  
   # Start loop if the folder does not already exist
-  source(file.path(functions_dir,"atm_var_station.R"))
+  source(file.path(functions_dir,"get_atmospheric_data.R"))
 
   # Define global inputs
   days <- c("06-01", "08-31") # Summer days
@@ -68,44 +44,57 @@ if(!dir.exists(outdir)){
   variable <- "g" # Define variable
   folder <- file.path(data_dir,"geo.data") # Define folder containing the raw data
   
-  # Load library
-  if(!is.element("data.table", row.names(installed.packages()))){
-      install.packages("data.table")
-    }
-  library(data.table)
-  
-  # For each station
-  for(ss in 1:length(stations$STANAME)){
-    ss <- 4
-    # Define all the inputs for the function
-    sta_name <- stations$abb[ss] # Get station name
-    sta_id <- stations$STAID[ss] # Get station ID
+  # For pressure level
+  for(aa in 1:length(altitudes)){
     
-    # Create data frame for specific station using function
-    tic <- Sys.time()
-    bin_df <-  atm_var_station(sta_name,
-                               data_dir,
-                               functions_dir,
-                               altitudes,
-                               variable,
-                               folder,
-                               itx3d,
-                               stations,
-                               days)
-    toc <- Sys.time()
-    print(toc-tic)
+    print(altitudes[aa])
     
-    # Remove first year
-    #bin_df <- bin_df[which(bin_df$t>1),]
-    # Add trend (logistic)
-    bin_df$trend <- log(bin_df$t-1)
-    # Add lag1
-    bin_df$Ix.lag1 <- dplyr::lag(bin_df$Ix, 1, 0)
+    # For grid point
+    for(gg in 1:nrow(grid_points)){
+    
+      # Extract grid point LAT and LON
+      glat <- grid_points$latitude[gg]
+      glon <- grid_points$longitude[gg]
+      
+      # Latitude: North or South?
+      if (glat > 0.5) {
+        lat_name<- paste0(glat,"N")
+      } else{
+        lat_name<- paste0(glat,"S")
+      }
+      
+      # Longitude: East or West?
+      if (glon > 0.5){
+        lon_name<- paste0(glon,"E")
+      }else{
+        lon_name<- paste0(abs(glon),"W")
+      }
+    
+      print(paste0(altitudes[aa],"hPa point ",gg,": ",lat_name,
+                   " ",lon_name))
+      
+      # Call get_atmospheric_data
+      tic <- Sys.time()
+      bin_df <- c(get_atmospheric_data(folder_path = folder,
+                                       ftime = "12pm",
+                                       variable =  variable,
+                                       geo_level =  altitudes[aa],
+                                       lat = glat,
+                                       lon = glon,
+                                       days =  days))
+      toc <- Sys.time()
+      print(toc-tic)
+    
+      # Save dataframe
+      outname <- paste0(variable, altitudes[aa], "_",
+                         lat_name,lon_name,".csv")
+      write.table(x = bin_df,
+                  file = file.path(outdir,outname),
+                  row.names = F,
+                  col.names = F)
   
-    # Save dataframe
-    fwrite(x = bin_df, file = file.path(outdir, paste0(sta_id,".df.csv")))
-  
-  }# for ss stations
+    }# for gg grid points
+  }# for aa atmospheric levels
 }# if outdir exists
 
 ```
