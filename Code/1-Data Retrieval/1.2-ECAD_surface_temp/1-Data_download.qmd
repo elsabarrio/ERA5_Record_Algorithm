@@ -14,6 +14,9 @@ Download maximum surface temperature data for European stations.
 
 ```{r message = FALSE, warning = FALSE}
 
+# Clean workspace
+rm(list = ls())
+
 # Set data directory
 data_dir <- "../../../Data"
 if(!dir.exists(data_dir)) stop("data_dir not found")
