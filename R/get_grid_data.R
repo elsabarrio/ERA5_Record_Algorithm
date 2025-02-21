@@ -12,13 +12,13 @@
 #'
 #' @examples
 #' get_grid_data(indir = file.path(data_dir, "geo.data"),
-#'               infile <- "g_300_12pm_60_23.rds",
-#'               inlat <- "lat.rds",
-#'               inlon <- "lon.rds",
-#'               indates <- "Date.rds",
-#'               indays <- c("06-01", "08-31"),
-#'               outdir <- file.path(data_dir, "grid_data"),
-#'               outfile <- "g300_grid.csv")
+#'               infile = "g_300_12pm_60_23.rds",
+#'               inlat = "lat.rds",
+#'               inlon = "lon.rds",
+#'               indates = "Date.rds",
+#'               indays = c("06-01", "08-31"),
+#'               outdir = file.path(data_dir, "grid_data"),
+#'               outfile = "g300_grid.csv")
 #'
 get_grid_data <- function(indir, infile, inlat, inlon, indates, indays, outdir, outfile){
   
@@ -58,7 +58,7 @@ get_grid_data <- function(indir, infile, inlat, inlon, indates, indays, outdir, 
     } else aux <- paste0(aux,"E")
   })
   # Point variable
-  new.df$p <- paste0(new.df$lat,new.df$lon)
+  new.df$p <- paste0(new.df$lat,".",new.df$lon)
   new.df <- subset(new.df, select=-c(lat,lon))
   
   # Reshape data.frame

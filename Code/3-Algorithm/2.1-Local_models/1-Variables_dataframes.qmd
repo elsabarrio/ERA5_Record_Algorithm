@@ -27,74 +27,32 @@ if(!dir.exists(outdir)){
   # Create directory to save the dataframes
   dir.create(outdir, recursive = T)
   
-  # Read the LAT and LON available in our atmospheric variables
-  lat <- readRDS(file = file.path(data_dir,"geo.data/lat.rds"))
-  lon <- readRDS(file = file.path(data_dir,"geo.data/lon.rds"))
+  # Load auxiliary function
+  source(file.path(functions_dir,"get_grid_data.R"))
   
-  # Find the avaliable grid points
-  aux_df <- data.frame(latitude = c(lat), longitude = c(lon))
-  grid_points <- unique(aux_df)
-  
-  # Start loop if the folder does not already exist
-  source(file.path(functions_dir,"get_atmospheric_data.R"))
+  # Run it for each geopotential level
+  glevels <- c("300","500","700")
+  for(aa in 1:length(glevels)){
+    
+    print(glevels[aa])
+    
+    # Set input/output file names
+    ifile <- paste0("g_",glevels[aa],"_12pm_60_23.rds")
+    ofile <- paste0("g",glevels[aa],"_grid.csv")
+    
+    # Create grid dataframe
+    tic <- Sys.time()
+    get_grid_data(indir = file.path(data_dir, "geo.data"),
+                  infile = ifile, 
+                  inlat = "lat.rds",
+                  inlon = "lon.rds",
+                  indates = "Date.rds",
+                  indays = c("06-01", "08-31"),
+                  outdir = file.path(data_dir, "grid_data"),
+                  outfile = ofile)
+    toc <- Sys.time()
+    print(toc-tic)
 
-  # Define global inputs
-  days <- c("06-01", "08-31") # Summer days
-  altitudes <- c("300", "500", "700") # Define pressure levels
-  variable <- "g" # Define variable
-  folder <- file.path(data_dir,"geo.data") # Define folder containing the raw data
-  
-  # For pressure level
-  for(aa in 1:length(altitudes)){
-    
-    print(altitudes[aa])
-    
-    # For grid point
-    for(gg in 1:nrow(grid_points)){
-    
-      # Extract grid point LAT and LON
-      glat <- grid_points$latitude[gg]
-      glon <- grid_points$longitude[gg]
-      
-      # Latitude: North or South?
-      if (glat > 0.5) {
-        lat_name<- paste0(glat,"N")
-      } else{
-        lat_name<- paste0(glat,"S")
-      }
-      
-      # Longitude: East or West?
-      if (glon > 0.5){
-        lon_name<- paste0(glon,"E")
-      }else{
-        lon_name<- paste0(abs(glon),"W")
-      }
-    
-      print(paste0(altitudes[aa],"hPa point ",gg,": ",lat_name,
-                   " ",lon_name))
-      
-      # Call get_atmospheric_data
-      tic <- Sys.time()
-      bin_df <- c(get_atmospheric_data(folder_path = folder,
-                                       ftime = "12pm",
-                                       variable =  variable,
-                                       geo_level =  altitudes[aa],
-                                       lat = glat,
-                                       lon = glon,
-                                       days =  days))
-      toc <- Sys.time()
-      print(toc-tic)
-    
-      # Save dataframe
-      outname <- paste0(variable, altitudes[aa], "_",
-                         lat_name,lon_name,".csv")
-      write.table(x = bin_df,
-                  file = file.path(outdir,outname),
-                  row.names = F,
-                  col.names = F)
-  
-    }# for gg grid points
-  }# for aa atmospheric levels
-}# if outdir exists
-
+  }# for aa level
+}# if outdir exist
 ```
