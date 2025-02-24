@@ -42,11 +42,10 @@ cpoints <- c("45N.10W","45N.5E","35N.10W","35N.5E")
 itx.mat <- read.csv(file.path(data_dir,"record.data","record.matrix.csv"))
 itx.mat$Date <- as.Date(itx.mat$Date)
 
-
 # Read grid data
-g300 <- read.csv(file.path(data_dir,"grid_data","g300_grid.csv"))
-g500 <- read.csv(file.path(data_dir,"grid_data","g500_grid.csv"))
-g700 <- read.csv(file.path(data_dir,"grid_data","g700_grid.csv"))
+gall <- cbind(read.csv(file.path(data_dir,"grid_data","g300_grid.csv")),
+              read.csv(file.path(data_dir,"grid_data","g500_grid.csv")),
+              read.csv(file.path(data_dir,"grid_data","g700_grid.csv")))
 
 ```
 
@@ -57,15 +56,13 @@ In the code cell below we create the four local models for each station and save
 ```{r}
 
 # Load libraries
+if(!is.element("MASS", row.names(installed.packages()))) install.packages("MASS")
 library(MASS)
+if(!is.element("pROC", row.names(installed.packages()))) install.packages("pROC")
 library(pROC)
 
 # Define output directory to save the models
 outdir <- "../../../Results/local.models"
-
-# Create matrix to save AUC values
-AUC.mat <- matrix(nrow = 2, ncol = nrow(stations))
-AUC.idx <- 0
 
 # Start loop to construct the local models
 if(!dir.exists(outdir)){
@@ -73,116 +70,122 @@ if(!dir.exists(outdir)){
   # Create output directory to save the models
   dir.create(outdir, recursive = T)
   
-  for(ss in 1:nrow(stations)){
+  # Abbreviations
+  stations$STANAME[10] <- "FABRA OBSERVATORY                       "
+  stations$STANAME[25] <- "BCN/AEROPUERTO                          "
+  stations$abb <- substr(stations$STANAME,1,6)
+  
+  # Create matrix to save AUC values
+  AUC.df <- data.frame(STAID = stations$STAID,
+                       STAAB = stations$abb,
+                       AUC = vector("numeric",nrow(stations)))
+  # Variable names
+  eralevels <- paste0("g",c("300","500","700"))
+  
+  # Set train-test sets
+  idx.years <- format(itx.mat$Date, "%Y")
+  tab.years <- table(idx.years)
+  length(tab.years)
+  idx.train <- which(!is.na(match(idx.years,names(tab.years)[1:51])))
+  #idx.test <- which(is.na(match(idx.years,names(tab.years)[1:51])))
+  
+  for(ss in 3:nrow(stations)){
+    
+    tic <- Sys.time()
+    print(paste0("Station: ",ss,"/",nrow(stations)))
   
     # Create data.frame
     bin_df <- data.frame(Ix = itx.mat[[paste0("X",stations$STAID[ss])]])
     
+    # Include variables of interest
+    fivep <- c(stations$point[ss], cpoints)
+    eranames <- paste(rep(eralevels, length(fivep)),
+                      rep(fivep, each = length(eralevels)),
+                      sep = ".")
+    bin_df <- cbind(bin_df, gall[eranames])
     
+    # Add lag-one for each variable
+    for(ii in 2:ncol(bin_df)){
+      col_name <- paste0(names(bin_df)[ii], ".lag1")
+      bin_df[[col_name]] <- dplyr::lag(bin_df[,ii], 1, 0)
+    }
+    
+    # Geopotential model formula
+    frm1 <- as.formula(paste0("Ix~",
+                              capture.output(cat(eranames, sep = "+"))))
+    
+    # Geopotential model with lag variables formula
+    lagnames <- names(bin_df)[grep("lag",names(bin_df))]
+    frm2 <- as.formula(paste0("Ix~",
+                              capture.output(cat(c(eranames,lagnames),
+                                                 sep = "+"))))
+    
+    # Geopotential model with second order polynomial terms formula
+    polynames <- sapply(eranames, function(name) paste0("poly(", name,",2)"))
+    frm3 <- as.formula(paste0("Ix~",
+                              capture.output(cat(polynames, sep = "+"))))
+    
+    # Geopotential model with second order polynomial and lag terms formula
+    frm4 <- as.formula(paste0("Ix~",
+                              capture.output(cat(c(polynames,lagnames),
+                                                 sep = "+"))))
+    
+    # Compute GLMs
+    fit1 <- glm(formula = frm1,
+                data = bin_df[idx.train,],
+                family = binomial(link = "logit"))
+    fit2 <- glm(formula = frm2,
+                data = bin_df[idx.train,],
+                family = binomial(link = "logit"))
+    fit3 <- glm(formula = frm3,
+                data = bin_df[idx.train,],
+                family = binomial(link = "logit"))
+    fit4 <- glm(formula = frm4,
+                data = bin_df[idx.train,],
+                family = binomial(link = "logit"))
+    
+    # Compute a stepAIC to each of the models
+    cat("\nRunning stepAIC")
+    fit1_step <-stepAIC(object = fit1, direction = "both", trace = FALSE)
+    fit2_step <- stepAIC(object = fit2, direction = "both", trace = FALSE)
+    fit3_step <- stepAIC(object = fit3, direction = "both", trace = FALSE)
+    fit4_step <-stepAIC(object = fit4, direction = "both", trace = FALSE)
+    
+    # List of fitted models
+    fitted_models <- list(fit1_step,fit2_step,fit3_step,fit4_step)
+    
+    # Compute AIC for each model
+    AIC_values <- sapply(fitted_models, AIC)
+    
+    # Identify the index of the model with the lowest AIC
+    index_lowest_AIC <- which.min(AIC_values)
   
-  # Reorder the columns to have the closer grid variables first and the further grid
-  # variables after.
-  plot_aux_df <- bin_df[,c(1:7, 12:15, 20:23, 8:11, 16:19, 24:29)]
+    # Save the fitted model with the lowest AIC
+    best_model <- fitted_models[[index_lowest_AIC]]
   
-  # Get the station ID and the name from the file names
-  staid <- gsub("\\.df.csv$", "", station.df)
-  sta_name <- stations$abb[stations$STAID==staid]
-  
-  # Determine whether the latitude and longitude correspond to North or South, East or West
-  if (stations[grep(sta_name, stations$abb),]$LAT >=0.5){
-    lat <- paste0(round(stations[grep(sta_name, stations$abb),]$LAT,0),"N")
-  }else{lat <- paste0(abs(round(stations[grep(sta_name, stations$abb),]$LAT,0)),"N")}
-  
-  if (stations[grep(sta_name, stations$abb),]$LON >=0.5){
-    lon <- paste0(round(stations[grep(sta_name, stations$abb),]$LON,0),"E")
-  }else{lon <- paste0(abs(round(stations[grep(sta_name, stations$abb),]$LON,0)),"W")}
-  
-  # Find the closest points to the stations being considered
-  closest.point.id <- paste0(lat,".",lon)
-  selected_columns <- grep(closest.point.id, colnames(plot_aux_df), value = TRUE)
-  other_columns <- names(plot_aux_df)[c(1:3, 16:29)]
-  
-  # Keep only one of the closer points
-  plot_df <- plot_aux_df[,c(selected_columns,other_columns)]
-  
-  # Now add lag variables for each of the geopotential variables
-  aux_df <- plot_df[,grep("g[.]",names(plot_df))]
-  for (i in 1:ncol(aux_df)){
-    col_name <- paste0(names(aux_df)[i], ".lag1")
-    plot_df[[col_name]] <- dplyr::lag(aux_df[,i], 1, 0)
-  }
-  
-  global.df <- plot_df
-  
-  # Add second lag term
-  global.df$Ix.lag2 <- dplyr::lag(global.df$Ix, 2, 0)
-  
-  # Geopotential model formula
-  gvars <- names(plot_df)[grep("g[.]",names(plot_df[,1:18]))]
-  frm2 <- as.formula(paste0("Ix~",capture.output(cat(gvars, sep = "+"))))
-  
-  # Geopotential model with lag variables formula
-  gvars_lag1 <- names(plot_df)[grep("g[.]",names(plot_df))]
-  frm3 <- as.formula(paste0("Ix~",capture.output(cat(gvars_lag1, sep = "+"))))
-  
-  # Geopotential model with second order polynomial terms formula
-  gvars_poly <- sapply(gvars, function(name) paste0("poly(", name,",2)"))
-  frm4 <- as.formula(paste0("Ix~",capture.output(cat(gvars_poly, sep = "+"))))
-  
-  # Geopotential model with second order polynomial and lag terms formula
-  gvars_poly_lag <- c(gvars_lag1[grepl("lag1",gvars_lag1)],gvars_poly)
-  frm5 <- as.formula(paste0("Ix~",capture.output(cat(gvars_poly_lag, sep = "+"))))
-  
-  # Set training set
-  idx.train = which(global.df$t <= 51)
-  
-  # Compute a glm for all the models
-  fit2 <- glm(formula = frm2, data = global.df[idx.train,], family = binomial(link = "logit"))
-  fit3 <- glm(formula = frm3, data = global.df[idx.train,], family = binomial(link = "logit"))
-  fit4 <- glm(formula = frm4, data = global.df[idx.train,], family = binomial(link = "logit"))
-  fit5 <- glm(formula = frm5, data = global.df[idx.train,], family = binomial(link = "logit"))
-  
-  # Compute a stepAIC to each of the models
-  
-  if(!is.element("MASS", row.names(installed.packages()))) install.packages("MASS")
-  library(MASS)
+    # Calculate the AUC value
+    predict.test <- predict(best_model,
+                            newdata = bin_df[-idx.train,],
+                            type = "response")
+    roc.aux <- roc(bin_df[-idx.train,]$Ix, predict.test, print.auc = TRUE)
+    print(auc(roc.aux))
+    
+    # Save AUC values in data.frame
+    AUC.df$AUC[ss] <- auc(roc.aux)
+    
+    # Save best model
+    saveRDS(best_model, file = file.path(outdir,paste0(stations$STAID[ss],".rds")))
 
-  fit2_step <- stepAIC(object = fit2, direction = "both", trace = FALSE)
-  fit3_step <- stepAIC(object = fit3, direction = "both", trace = FALSE)
-  fit4_step <-stepAIC(object = fit4, direction = "both", trace = FALSE)
-  fit5_step <-stepAIC(object = fit5, direction = "both", trace = FALSE)
+    # Save AUC matrix
+    write.csv(x = AUC.df,
+              file = file.path(dirname(outdir),"local.AUC.csv"),
+              row.names = F)
+    toc <- Sys.time()
+    print(toc-tic)
+    
+  }# for ss in stations
   
-  # List of fitted models
-  fitted_models <- list(fit2_step,fit3_step,fit4_step,fit5_step)
-  
-  # Compute AIC for each model
-  AIC_values <- sapply(fitted_models, AIC)
-  
-  # Identify the index of the model with the lowest AIC
-  index_lowest_AIC <- which.min(AIC_values)
-  
-  # Save the fitted model with the lowest AIC
-  best_model <- fitted_models[[index_lowest_AIC]]
-  
-  # Calculate the AUC value
-  df.test <- global.df[-idx.train,]
-predict.test <- predict(best_model,newdata = df.test,type = "response")
-roc.aux <- roc(df.test$Ix, predict.test, print.auc = TRUE)
-print(auc(roc.aux))
-
-# Save AUC values in matrix
-AUC.idx <- AUC.idx+1
-AUC.mat[1,AUC.idx] <- sta_name
-AUC.mat[2,AUC.idx] <- auc(roc.aux)
-
-# Save best model
-  saveRDS(best_model, file = file.path(outdir,paste0(staid,".rds")))
-
-  }
-  
-  # Save AUC matrix
-    write.csv2(AUC.mat, file = file.path(wd,"Results/local.AUC.csv"))
-}
+}# if outdir exists
 
 
 ```
