@@ -4,15 +4,18 @@ format: html
 editor: visual
 ---
 
-## Obtaining the z values from the local models
+## Obtaining the z-values from the local models
 
-This script retrieves the z values from the variables of each of the local models. This is useful because the global models will be based on the z values and on how frequent each of the variables are (how many of the local models they appear on).
+This script retrieves the z-values from the variables of each of the local models. This is useful because the global models will be based on the z-values and on how frequent each of the variables are (how many of the local models they appear on).
 
 ## Define common variable names
 
-We want to save all the models z values in a data frame and to do so we first need to define common variable names for all of them, specifically the variables closest to each of the station being considered, we want to remove their coordinates indicators and save them with a common name.
+We want to save all the models z-values in a data frame and to do so we first need to define common variable names for all of them, specifically the variables closest to each of the station being considered, we want to remove their coordinates indicators and save them with a common name.
 
 ```{r message = FALSE, warning = FALSE}
+
+# Clear workspace
+rm(list = ls())
 
 # Define variable names
 v.names <- c("g.300.","g.500.","g.700.", # Variables closest to each of the station being considered
@@ -22,58 +25,56 @@ v.names <- c("g.300.","g.500.","g.700.", # Variables closest to each of the stat
              "g.300.35N.5E","g.500.35N.5E","g.700.35N.5E")
 
 # Now add lag variables for each of the geopotential variables
-lag.names <- c()
-for (i in 1:length(v.names)){
-  lag.name <- paste0(v.names[i], ".lag1")
-  lag.names <- c(lag.names,lag.name)
-}
+lag.names <- paste0(v.names,".lag1")
 
 # Now add poly terms for each of the geopetential variables
-poly.terms <- c()
-for (i in 1:length(v.names)){
-  poly1.term <- paste0("poly(",v.names[i], ", 2)1")
-  poly2.term <- paste0("poly(",v.names[i], ", 2)2")
-  poly.terms <- c(poly.terms,poly1.term,poly2.term)
-}
-
+poly.terms <- paste0(rep(paste0(paste0("poly(",v.names),", 2)"),each=2),
+                     c("1","2"))
 # Create an array containing all the variable's names
 final.variables <- c(v.names,lag.names,poly.terms)
 ```
 
-## Saving z values
+## Saving z-values
 
-In the code cell below the z values of the variables of each of the local models are saved. These will be used to decide which variables to keep in the simplest global model.
+In the code cell below the z-values of the variables of each of the local models are saved. These will be used to decide which variables to keep in the simplest global model.
 
 ```{r message = FALSE, warning = FALSE}
 
-# Set working directory
-wd <- "C:/Users/elsac/Documents/Excess.records"
+# Set data directory
+data_dir <- "../../../Data"
+if(!dir.exists(data_dir)) stop("data_dir not found")
+
+# Read list of observatories of interest. Based on previous work.
+stations <- read.csv(file.path(data_dir,"geo_peninsula_zones.csv"))
+idx <- which(!is.na(stations$Zona))
+stations <- stations[idx,]
 
 # Set data directory
-models.dir <- file.path(wd,"Results/local.models")
+models.dir <- "../../../Results/local.models"
 if(!dir.exists(models.dir)) stop("models.dir not found")
 
 # Get the list of the file names of the models
 models.list <- list.files(models.dir)
+if(nrow(stations) != length(models.list)){
+  stop("Number of models and stations differ.")
+}
 
-# Create matrix to save z values
+# Create matrix to save z-values
 z.mat <- matrix(ncol = length(final.variables), nrow = length(models.list))
 colnames(z.mat) <- final.variables
+rownames(z.mat) <- stations$STAID
 
 # Initialize empty array and variable j
 staid.rows <- c()
 j <- 0
 
 # Create a loop to iterate over the models and save their z values
-for (model in models.list){
+for(ss in 1:nrow(stations)){
   
-  j <- j+1
-  
-  # Get the station ID of the specific model
-  staid <- gsub("\\.rds$", "", model)
+  print(paste0("Station: ",ss,"/",nrow(stations)))
   
   # Read the model
-  fit.stat <- readRDS(file = file.path(models.dir,model))
+  fit.stat <- readRDS(file = paste0(models.dir,"/",stations$STAID[ss],".rds"))
   
   # Keep only the z values from the models
   z.value <- summary(fit.stat)$coefficients[,3]

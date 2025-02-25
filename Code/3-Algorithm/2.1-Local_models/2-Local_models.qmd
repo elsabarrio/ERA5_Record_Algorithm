@@ -6,7 +6,7 @@ editor: visual
 
 ## Create local models
 
-This code uses the grid data frames obtained from the previous script to create the local models, one for each station. Four models are created for each station, and the one with the lowes AIC value is kept. These models are: a model with only the geopotential variables as predictors, a model with the geopotential variables and a lag term of them, a model with the geopotential variables and a second order polynomial term, and a model with the geopotential variables, the lag terms, and the second order polynomials.
+This code uses the grid data frames obtained from the previous script to create the local models, one for each station. Four models are created for each station, and the one with the lowest AIC value is kept. These models are: a model with only the geopotential variables as predictors, a model with the geopotential variables and a lag term of them, a model with the geopotential variables and a second order polynomial term, and a model with the geopotential variables, the lag terms, and the second order polynomials.
 
 ## Set records and refine station names
 
