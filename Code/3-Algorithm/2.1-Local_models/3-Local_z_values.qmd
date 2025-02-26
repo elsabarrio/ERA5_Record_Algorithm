@@ -18,11 +18,11 @@ We want to save all the models z-values in a data frame and to do so we first ne
 rm(list = ls())
 
 # Define variable names
-v.names <- c("g.300.","g.500.","g.700.", # Variables closest to each of the station being considered
-             "g.300.45N.10W","g.500.45N.10W","g.700.45N.10W",
-             "g.300.35N.10W","g.500.35N.10W","g.700.35N.10W",
-             "g.300.45N.5E","g.500.45N.5E","g.700.45N.5E",
-             "g.300.35N.5E","g.500.35N.5E","g.700.35N.5E")
+v.names <- c("g300.","g500.","g700.", # Variables closest to each of the station being considered
+             "g300.45N.10W","g500.45N.10W","g700.45N.10W",
+             "g300.35N.10W","g500.35N.10W","g700.35N.10W",
+             "g300.45N.5E","g500.45N.5E","g700.45N.5E",
+             "g300.35N.5E","g500.35N.5E","g700.35N.5E")
 
 # Now add lag variables for each of the geopotential variables
 lag.names <- paste0(v.names,".lag1")
@@ -64,10 +64,6 @@ z.mat <- matrix(ncol = length(final.variables), nrow = length(models.list))
 colnames(z.mat) <- final.variables
 rownames(z.mat) <- stations$STAID
 
-# Initialize empty array and variable j
-staid.rows <- c()
-j <- 0
-
 # Create a loop to iterate over the models and save their z values
 for(ss in 1:nrow(stations)){
   
@@ -78,52 +74,33 @@ for(ss in 1:nrow(stations)){
   
   # Keep only the z values from the models
   z.value <- summary(fit.stat)$coefficients[,3]
-  
-  # Add rownames
-  staid.rows <- c(staid.rows, staid)
+  z.names <- names(z.value)
   
   # Define further grid and get the variables from the further grid
-  further.grid <- c("45N.10W", "45N.5E", "35N.10W", "35N.5E")
-  far.idx <-grep("45N.10W|45N.5E|35N.10W|35N.5E", names(z.value))
-  z.value.l <- z.value[c(far.idx)]
-  
+  far.idx <- grep("45N.10W|45N.5E|35N.10W|35N.5E", z.names)
   # Get the variables closest to each of the stations
-  z.value.s <- z.value[-c(1,far.idx)]
-  # Get the names of the variables
-  names.small.aux <- names(z.value[-c(1,far.idx)])
-  
-  # Regular expression pattern to match coordinates
-  pattern <- "\\d+[A-Z]\\.\\d+[A-Z]"
-  
-  # Remove the coordinates from the variables closest to each of the station so that they all have the same name
-  names.small <- gsub(pattern, "", names.small.aux)
-  names(z.value.s) <- names.small
-  
-  # Get the final z values with the propper names
-  fin.z <- c(z.value.s, z.value.l)
+  z.names[-c(1,far.idx)] <- gsub(pattern = "\\d+[A-Z]\\.\\d+[A-Z]",
+                                        replacement =  "",
+                                        x = z.names[-c(1,far.idx)])
   
   # Match the names with the z matrix names
-  matched.idx <- match(names(fin.z), colnames(z.mat))
+  matched.idx <- match(z.names[-1], colnames(z.mat))
   
   # Add the data to the z matrix
-  z.mat[j, matched.idx] <- fin.z
+  z.mat[ss, matched.idx] <- z.value[-1]
   
 }
 
-# Set the rownames from the z matrix to the stations' IDs
-rownames(z.mat) <- staid.rows
-
 # Convert the matrix into a data frame
 fin.z.mat <- as.data.frame(z.mat)
-
-# Add a column with the station IDs
-fin.z.mat$STAID <- staid.rows
+fin.z.mat <- cbind(row.names(z.mat),fin.z.mat)
+names(fin.z.mat)[1] <- "STAID"
 
 # Save the data frame
-save.dir <- paste0(wd,"/Results/local.z.values/")
+save.dir <- "../../../Results/local.z.values/"
 if(!dir.exists(save.dir)) dir.create(save.dir, recursive = T)
+write.csv(x = fin.z.mat,
+          file = file.path(save.dir, "zvalues_df.csv" ),
+          row.names = F)
 
-if(!is.element("data.table", row.names(installed.packages()))) install.packages("data.table")
-library(data.table)
-fwrite(x = fin.z.mat, file = file.path(save.dir, "/z.values.df.csv" ))
 ```
