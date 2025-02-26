@@ -10,14 +10,16 @@ We start by reading the z values table we obtained from the 36 simple models in 
 
 ```{r message = FALSE, warning = FALSE}
 
-# Set working directory
-wd <- "C:/Users/elsac/Documents/Excess.records"
+# Clear workspace
+rm(list = ls())
 
 # Find the directory with the z values
-data.dir <- paste0(wd,"/Results/local.z.values/")
+z_dir <- "../../../Results/local.z.values/"
+if(!dir.exists(z_dir)) stop("z_dir not found")
 
 # Read the z values
-z.mat <- read.csv(file = file.path(data.dir, "z.values.df.csv"), check.names = FALSE)
+z.mat <- read.csv(file = file.path(z_dir, "zvalues_df.csv"),
+                  check.names = F)
 
 if(!is.element("dplyr", row.names(installed.packages()))) install.packages("dplyr")
 library(dplyr)
@@ -40,15 +42,18 @@ Now we want to combine the columns of the original terms and the first order pol
 ```{r}
 # Add original columns to first polynomial term columns
 for (original_col in originals) {
-  # Find the equivalen first polynomial term column
+  # Find the equivalent first polynomial term column
   poly_col <- poly.2.1[grepl(paste0("\\(", original_col, ","), poly.2.1)]
   
   # Realizar la suma en valor absoluto
-  z.mat[[poly_col]] <- rowSums(cbind(abs(z.mat[[original_col]]), abs(z.mat[[poly_col]])), na.rm = TRUE)
+  z.mat[[poly_col]] <-  rowSums(cbind(abs(z.mat[[original_col]]),
+                                      abs(z.mat[[poly_col]])),
+                                na.rm = TRUE)
 }
 
 # Remove original columns from data frame
 z.mat <- z.mat[, !colnames(z.mat) %in% originals]
+
 ```
 
 ## Find key variables
@@ -76,12 +81,13 @@ final.var.aux  <- sub("poly\\((.*), 2\\)1", "\\1", final.var.aux)
 poly.terms <- grep("^poly\\(", final.var.aux, value = TRUE)
 
 # Loop over poly terms and remove the original term if it exists
-for (term in poly.terms) {
+for(term in poly.terms) {
   # Remove the "poly" prefix and check if the base term exists
   base_term <- sub("poly\\((.*), 2\\)", "\\1", term)
   final.var.aux <- final.var.aux[final.var.aux != base_term]
 }
 final.var.aux
+
 ```
 
 We are left with 9 variables, to be included in the global models. We can now save this list of terms.
@@ -91,13 +97,12 @@ We are left with 9 variables, to be included in the global models. We can now sa
 ```{r}
 
 # Define the folder path
-folder_path <- "C:/Users/elsac/Documents/Excess.records/Results/final.models"
+folder_path <- "../../../Results/final.models"
 
 # Check if the folder exists, and create it if it does not
-if (!dir.exists(folder_path)) {
-  dir.create(folder_path)
-}
+if(!dir.exists(folder_path)) dir.create(folder_path)
 
 # Save the array to an RDS file
-saveRDS(final.var.aux,file = paste0(folder_path,"/final.variables.rds"))
+saveRDS(final.var.aux,file = paste0(folder_path,"/final_variables.rds"))
+
 ```
