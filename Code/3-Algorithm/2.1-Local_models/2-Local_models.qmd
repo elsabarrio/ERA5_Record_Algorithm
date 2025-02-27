@@ -38,7 +38,7 @@ stations$point <- paste0(round(stations$LAT),"N.",
 # Corner points
 cpoints <- c("45N.10W","45N.5E","35N.10W","35N.5E")
 
-# Read record indicators volume
+# Read record indicators matrix
 itx.mat <- read.csv(file.path(data_dir,"record.data","record.matrix.csv"))
 itx.mat$Date <- as.Date(itx.mat$Date)
 
@@ -89,7 +89,7 @@ if(!dir.exists(outdir)){
   idx.train <- which(!is.na(match(idx.years,names(tab.years)[1:51])))
   #idx.test <- which(is.na(match(idx.years,names(tab.years)[1:51])))
   
-  for(ss in 3:nrow(stations)){
+  for(ss in 1:nrow(stations)){
     
     tic <- Sys.time()
     print(paste0("Station: ",ss,"/",nrow(stations)))

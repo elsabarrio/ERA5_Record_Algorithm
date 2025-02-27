@@ -54,10 +54,13 @@ itx3d <- apply(X = tx3d[summer_idx,,], MARGIN = c(1,3), upp.rcrd)
 dates.idx <- which(format(tx.mat$Date, "%m") %in% c("06", "07", "08"))
 
 # Reshape volume
-record.df <- as.data.frame(array(aperm(itx3d, c(2,1,3)), dim = c(length(dates.idx),SS)))
+record.df <- as.data.frame(array(aperm(itx3d, c(2,1,3)),
+                                 dim = c(length(dates.idx),SS)))
 
 # Adjust the colnames so that they do not contain X before the station id
-colnames(record.df) <- gsub(pattern = "X", replacement = "", x = colnames(tx.mat[-1]))
+colnames(record.df) <- gsub(pattern = "X",
+                            replacement = "",
+                            x = colnames(tx.mat[-1]))
 
 # Add the Date column back to the result
 record.df$Date <- tx.mat[format(tx.mat$Date, "%m") %in% c("06", "07", "08"), "Date"]
@@ -82,7 +85,9 @@ if (!dir.exists(outdir)) {
 # Check if the file already exists
 if (!file.exists(file.path(outdir,"record.matrix.csv"))) {
   # Save the record matrix
-  write.csv(as.matrix(record.df), file = file.path(outdir,"record.matrix.csv"), row.names = FALSE)
+  write.csv(x = record.df,
+            file = file.path(outdir,"record.matrix.csv"),
+            row.names = FALSE)
 }
 
 # Check if the file already exists
