@@ -1,0 +1,360 @@
+---
+title: "2-Final_models"
+format: html
+editor: visual
+---
+
+## Create data frame with data for all stations
+
+To construct the final models, we first need to construct a data frame containing the data for all stations. To do so, we perform "column-wise concatenation". Specifically, we combine data from 36 separate stations, each corresponding to a different station, into a single larger data frame. Since these stations share some variables, the operation involves appending the columns of each station's data frame side by side, while the variables corresponding to the closest point to each of the stations are not the same, but we are gonna merge them into a unique variable.
+
+```{r}
+# Clear workspace
+rm(list = ls())
+
+# Set data directory
+data_dir <- "../../../Data"
+if(!dir.exists(data_dir)) stop("data_dir not found")
+
+# Read list of observatories of interest. Based on previous work.
+stations <- read.csv(file.path(data_dir,"geo_peninsula_zones.csv"))
+idx <- which(!is.na(stations$Zona))
+stations <- stations[idx,]
+stations$point <- sapply(1:nrow(stations),
+                         function(x){
+                           aux <- as.character(round(stations$LON[x]))
+                           if(grepl("^-",aux)){
+                             aux <- paste0(substr(aux, 2, nchar(aux)),"W")
+                           } else aux <- paste0(aux,"E")
+                           })
+stations$point <- paste0(round(stations$LAT),"N.",
+                         stations$point)
+# Corner points
+cpoints <- c("45N.10W","45N.5E","35N.10W","35N.5E")
+
+# Read Tx matrix
+# Read the data for maximum temperatures
+tx.mat <- read.csv(file.path(data_dir,"tx.data","Tx_mat.csv"))
+tx.mat$Date <- as.Date(tx.mat$Date)
+idx.y <- which(as.numeric(format(tx.mat$Date,"%Y")) > 1980 &
+               as.numeric(format(tx.mat$Date,"%Y")) < 2011)
+idx.d <- which(as.numeric(format(tx.mat$Date,"%m")) >=6 &
+               as.numeric(format(tx.mat$Date,"%m")) <= 8)
+stations$avg.Tx <- apply(X = tx.mat[intersect(idx.d,idx.y),-1],
+                         MARGIN = 2,
+                         FUN = function(x) mean(x, na.rm = T))/10
+stations$sd.Tx <- apply(X = tx.mat[intersect(idx.d,idx.y),-1],
+                         MARGIN = 2,
+                         FUN = function(x) sd(x, na.rm = T))/10
+
+# Read record indicators matrix
+itx.mat <- read.csv(file.path(data_dir,"record.data","record.matrix.csv"))
+itx.mat$Date <- as.Date(itx.mat$Date)
+
+# Reshape data
+TT <- length(table(format(itx.mat$Date,"%Y")))
+LL <- nrow(itx.mat)/TT
+SS <- nrow(stations)
+
+# Data directory
+outdir <- "../../../Results/final.models"
+if(!dir.exists(outdir)) dir.create(outdir, recursive = T)
+
+# Inint final data.frame
+global.model.mat <- data.frame(STAID = rep(stations$STAID, each = nrow(itx.mat)),
+                               Ix = c(as.matrix(itx.mat[,-1])),
+                               t = rep(rep(1:TT, each = LL), SS),
+                               l = rep(rep(1:LL, TT), SS),
+                               LAT = rep(stations$LAT, each = nrow(itx.mat)),
+                               LON = rep(stations$LON, each = nrow(itx.mat)),
+                               CoastDist = rep(stations$LAT, each = nrow(itx.mat)),
+                               avg.Tx = rep(stations$avg.Tx, each = nrow(itx.mat)),
+                               sd.Tx = rep(stations$sd.Tx, each = nrow(itx.mat)))
+
+# Variable names
+eralevels <- paste0("g",c("300","500","700"))
+# Corner points
+cpoints <- c("45N.10W","45N.5E","35N.10W","35N.5E")
+# Define variable names
+v.names <- paste(rep(eralevels, length(cpoints)+1),
+                 rep(c("",cpoints),each = length(eralevels)),
+                 sep = ".")
+
+# Global variables
+global.era.mat <- matrix(data = as.numeric(NA),
+                         nrow = nrow(global.model.mat),
+                         ncol = length(v.names))
+colnames(global.era.mat) <- v.names
+global.era.mat <- as.data.frame(global.era.mat)
+
+# Read grid data
+gall <- cbind(read.csv(file.path(data_dir,"grid_data","g300_grid.csv")),
+              read.csv(file.path(data_dir,"grid_data","g500_grid.csv")),
+              read.csv(file.path(data_dir,"grid_data","g700_grid.csv")))
+
+# Read closed point for each station and concatenate in the global matrix
+for(ss in 1:nrow(stations)){
+  
+  cat(paste0("..",ss))
+  
+  # Concatenating indices
+  cidx1 <- 1+nrow(gall)*(ss-1)
+  cidx2 <- nrow(gall)*ss
+  
+  # Include variables of interest
+  fivep <- c(stations$point[ss], cpoints)
+  eranames <- paste(rep(eralevels, length(fivep)),
+                    rep(fivep, each = length(eralevels)),
+                    sep = ".")
+  # Add to matrix
+  global.era.mat[cidx1:cidx2,] <- gall[,match(eranames, names(gall))]
+  
+}# for ss stations
+
+# Combine global data.frame with ERA-5 variables
+global.model.mat <- cbind(global.model.mat,global.era.mat)
+
+# Define output directory to save the models
+outdir <- file.path(data_dir,"global_data")
+if(!dir.exists(outdir)) dir.create(outdir)
+
+# Write data.frame
+saveRDS(object = global.model.mat,
+        file = file.path(outdir, "global_df.rds"))
+
+```
+
+## M1: Simple global model
+
+We begin by constructing a simple global model with the final variables selected from the local models as predictors.
+
+```{r}
+# Define file path
+model_file <- file.path(wd, "Results/final.models/M1.RDS")
+ 
+# Set training set
+idx.train <- which(global.model.mat$t <= 51)
+   
+# Check if file exists
+if (!file.exists(model_file)) {
+   # File does not exist; run the code to compute and save the model
+   
+   # Get formula
+   frm.1 <- as.formula(paste0("Ix~", capture.output(cat(fin.var, sep = "+"))))
+   
+   # Fit model
+   full.M1 <- glm(formula = frm.1, data = global.model.mat[idx.train,], family = binomial(link = "logit"))
+   
+   M1.0 <- update(full.M1, .~1)
+   
+   M1 <- stepAIC(M1.0, direction = "both", scope = list(lower = M1.0, upper = full.M1), k = 10.82757)
+   
+   # Save model
+   saveRDS(M1$formula, file = model_file)
+ } else {
+   # File exists; read the formula
+   M1.formula <- readRDS(model_file)
+   
+   # Compute the model
+   M1 <- glm(formula = M1.formula, data = global.model.mat[idx.train,], family = binomial(link = "logit"))
+ }
+```
+
+## M2
+
+```{r}
+model_file <- file.path(wd, "Results/final.models/M2.RDS")
+
+# Check if file exists
+if (!file.exists(model_file)) {
+  
+  # File does not exist; run the code to compute and save the model
+  # Get formula
+  frm.2 <- as.formula(paste0("Ix~ (",capture.output(cat(fin.var, sep = "+")),") * LAT * LON "))
+  
+  # Define model before step
+  full.M2 <- glm(formula = frm.2, data = global.model.mat[idx.train,], family = binomial(link = "logit"))
+  
+  # Set model for lower scope
+  M2.0 <- update(full.M2, .~1)
+  
+  # Run step
+  M2 <- stepAIC(M2.0, direction = "both", scope = list(lower = M2.0, upper = full.M2), k = 10.82757)
+  
+  saveRDS(M2$formula, file = file.path(wd,"Results/final.models/M2.RDS"))
+  # Save model
+  } else {
+    
+  # File exists; read the formula
+  M2.formula <- readRDS(model_file)
+  
+  # Compute the model
+  M2 <- glm(formula = M2.formula, data = global.model.mat[idx.train,], family = binomial(link = "logit"))
+  
+}
+```
+
+## M3
+
+```{r}
+# Define file path
+model_file <- file.path(wd, "Results/final.models/M3.RDS")
+
+# Check if file exists
+if (!file.exists(model_file)) {
+  
+  # File does not exist; run the code to compute and save the model
+    
+  # Get formula
+  frm.3 <- as.formula(paste0("Ix~ (",capture.output(cat(fin.var, sep = "+")),") * Avg.Temp * Sd.Temp "))
+  
+  # Define model before step
+  full.M3 <- glm(formula = frm.3, data = global.model.mat[idx.train,], family = binomial(link = "logit"))
+  
+  # Set model for lower scope
+  M3.0 <- update(full.M3, .~1)
+  
+  # Run step
+  M3 <- stepAIC(M3.0, direction = "both", scope = list(lower = M3.0, upper = full.M3), k = 10.82757)
+  
+  # Save model
+  saveRDS(M3$formula, file = file.path(wd,"Results/final.models/M3.RDS"))
+
+} else {
+  
+  # File exists; read the formula
+  M3.formula <- readRDS(model_file)
+  
+  # Compute the model
+  M3 <- glm(formula = M3.formula, data = global.model.mat[idx.train,], family = binomial(link = "logit"))
+
+}
+```
+
+## M4
+
+```{r}
+# Define file path
+model_file <- file.path(wd, "Results/final.models/M4.RDS")
+
+# Check if file exists
+if (!file.exists(model_file)) {
+  
+  # File does not exist; run the code to compute and save the model
+  # Get formula
+  frm.4 <- as.formula(paste0("Ix~ (",capture.output(cat(fin.var, sep = "+")),") * Altitude * log(CoastDist) "))
+  
+  # Define model before step
+  full.M4 <- glm(formula = frm.4, data = global.model.mat[idx.train,], family = binomial(link = "logit"))
+  
+  # Set model for lower scope
+  M4.0 <- update(full.M4, .~1)
+  
+  # Run step
+  M4 <- stepAIC(M4.0, direction = "both", scope = list(lower = M4.0, upper = full.M4), k = 10.82757)
+  
+  # Save model
+  saveRDS(M4$formula, file = file.path(wd,"Results/final.models/M4.RDS"))
+
+} else {
+  
+  # File exists; read the formula
+  M4.formula <- readRDS(model_file)
+  
+  # Compute the model
+  M4 <- glm(formula = M4.formula, data = global.model.mat[idx.train,], family = binomial(link = "logit"))
+  
+}
+```
+
+## Model's AUCs
+
+```{r}
+if(!is.element("MASS", row.names(installed.packages()))) install.packages("MASS")
+library(MASS)
+if(!is.element("pROC", row.names(installed.packages()))) install.packages("pROC")
+library(pROC)
+
+# Calculate full test AUC and coast test AUC
+df.test <- global.model.mat[-idx.train,]
+
+# Create matrices to save results
+AUC.station.mat <- matrix(nrow = 4, ncol = nrow(stations))
+colnames(AUC.station.mat) <- unique(global.model.mat$STAID)
+final.models.mat <- matrix(nrow = 4, ncol = 5)
+colnames(final.models.mat) <- c('k', "AUC", "AUC.coast", "AUC.inner", "AIC")
+
+for (i in 1:4){
+  
+  # Get model
+  model <- get(paste0('M',i))
+  
+  # Get number of parameters
+  k <- length(coef(model))
+  
+  # Get global AUC
+  predict.aux <- predict(model,newdata = df.test,type = "response")
+  roc.aux <- roc(df.test$Ix, predict.aux, print.auc = TRUE)
+  global.auc <- auc(roc.aux)
+  
+  # Get AUC from stations near the coast
+  df.coast <- df.test[df.test$CoastDist < 50,]
+  predict.coast <- predict(model,newdata = df.coast,type = "response")
+  roc.coast <- roc(df.coast$Ix, predict.coast, print.auc = TRUE)
+  coast.auc <- auc(roc.coast)
+  
+  # Get AUC from inner stations
+  df.inner <- df.test[df.test$CoastDist> 50,]
+  predict.inner <- predict(model,newdata = df.inner,type = "response")
+  roc.inner <- roc(df.inner$Ix, predict.inner, print.auc = TRUE)
+  inner.auc <- auc(roc.inner)
+  
+  # Get AIC value
+  AIC.aux <- AIC(model)
+  
+  # Save measures in matrix
+  final.models.mat[i,] <- c(k, global.auc, coast.auc, inner.auc, AIC.aux)
+  
+  # Get AUC values at each station
+  for (staid in unique(global.model.mat$STAID)){
+    
+    # Get indices
+    idx.AUC <- which(df.test$STAID == staid)
+    
+    # Calculate AUC
+    roc.station <- roc(df.test[idx.AUC,]$Ix, predict.aux[idx.AUC], print.auc = TRUE)
+    AUC.station<- auc(roc.station)
+    
+    # Save AUC
+    AUC.station.mat[i, staid] <- AUC.station
+}
+  
+}
+
+# Save matrices
+if (!file.exists(file.path(wd, 'Results/global.AUC.csv'))) {
+  write.csv2(AUC.station.mat, file = file.path(wd, 'Results/global.AUC.csv'))
+}
+
+if (!file.exists(file.path(wd, 'Results/final.models.performance.csv'))) {
+  write.csv2(final.models.mat, file = file.path(wd, 'Results/final.models.performance.csv'))
+}
+```
+
+## Save M2 predict
+
+```{r}
+
+# Get global AUC
+M2.predict <- predict(M2,newdata = df.test,type = "response")
+
+M2.predict.df <- data.frame(STAID = df.test$STAID,
+                            predict.test = M2.predict,
+                            t = df.test$t,
+                            l = rep(1:92, times = length(unique(df.test$t)*length(unique(df.test$STAID)))))
+
+# Save M2 model's predict
+if (!file.exists(file.path(wd, 'Results/M2.predict.csv'))) {
+    write.csv2(M2.predict.df, file = file.path(wd, 'Results/M2.predict.csv'), row.names = FALSE)
+}
+```

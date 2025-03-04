@@ -1,0 +1,125 @@
+---
+title: "2-Final_models"
+format: html
+editor: visual
+---
+
+## Create data frame with data for all stations
+
+To construct the final models, we first need to construct a data frame containing the data for all stations. To do so, we perform "column-wise concatenation". Specifically, we combine data from 36 separate stations, each corresponding to a different station, into a single larger data frame. Since these stations share some variables, the operation involves appending the columns of each station's data frame side by side, while the variables corresponding to the closest point to each of the stations are not the same, but we are gonna merge them into a unique variable.
+
+```{r}
+# Clear workspace
+rm(list = ls())
+
+# Set data directory
+data_dir <- "../../../Data"
+if(!dir.exists(data_dir)) stop("data_dir not found")
+
+# Read list of observatories of interest. Based on previous work.
+stations <- read.csv(file.path(data_dir,"geo_peninsula_zones.csv"))
+idx <- which(!is.na(stations$Zona))
+stations <- stations[idx,]
+stations$point <- sapply(1:nrow(stations),
+                         function(x){
+                           aux <- as.character(round(stations$LON[x]))
+                           if(grepl("^-",aux)){
+                             aux <- paste0(substr(aux, 2, nchar(aux)),"W")
+                           } else aux <- paste0(aux,"E")
+                           })
+stations$point <- paste0(round(stations$LAT),"N.",
+                         stations$point)
+# Corner points
+cpoints <- c("45N.10W","45N.5E","35N.10W","35N.5E")
+
+# Read Tx matrix
+# Read the data for maximum temperatures
+tx.mat <- read.csv(file.path(data_dir,"tx.data","Tx_mat.csv"))
+tx.mat$Date <- as.Date(tx.mat$Date)
+idx.y <- which(as.numeric(format(tx.mat$Date,"%Y")) > 1980 &
+               as.numeric(format(tx.mat$Date,"%Y")) < 2011)
+idx.d <- which(as.numeric(format(tx.mat$Date,"%m")) >=6 &
+               as.numeric(format(tx.mat$Date,"%m")) <= 8)
+stations$avg.Tx <- apply(X = tx.mat[intersect(idx.d,idx.y),-1],
+                         MARGIN = 2,
+                         FUN = function(x) mean(x, na.rm = T))/10
+stations$sd.Tx <- apply(X = tx.mat[intersect(idx.d,idx.y),-1],
+                         MARGIN = 2,
+                         FUN = function(x) sd(x, na.rm = T))/10
+
+# Read record indicators matrix
+itx.mat <- read.csv(file.path(data_dir,"record.data","record.matrix.csv"))
+itx.mat$Date <- as.Date(itx.mat$Date)
+
+# Reshape data
+TT <- length(table(format(itx.mat$Date,"%Y")))
+LL <- nrow(itx.mat)/TT
+SS <- nrow(stations)
+
+# Data directory
+outdir <- "../../../Results/final.models"
+if(!dir.exists(outdir)) dir.create(outdir, recursive = T)
+
+# Inint final data.frame
+global.model.mat <- data.frame(STAID = rep(stations$STAID, each = nrow(itx.mat)),
+                               Ix = c(as.matrix(itx.mat[,-1])),
+                               t = rep(rep(1:TT, each = LL), SS),
+                               l = rep(rep(1:LL, TT), SS),
+                               LAT = rep(stations$LAT, each = nrow(itx.mat)),
+                               LON = rep(stations$LON, each = nrow(itx.mat)),
+                               CoastDist = rep(stations$LAT, each = nrow(itx.mat)),
+                               avg.Tx = rep(stations$avg.Tx, each = nrow(itx.mat)),
+                               sd.Tx = rep(stations$sd.Tx, each = nrow(itx.mat)))
+
+# Variable names
+eralevels <- paste0("g",c("300","500","700"))
+# Corner points
+cpoints <- c("45N.10W","45N.5E","35N.10W","35N.5E")
+# Define variable names
+v.names <- paste(rep(eralevels, length(cpoints)+1),
+                 rep(c("",cpoints),each = length(eralevels)),
+                 sep = ".")
+
+# Global variables
+global.era.mat <- matrix(data = as.numeric(NA),
+                         nrow = nrow(global.model.mat),
+                         ncol = length(v.names))
+colnames(global.era.mat) <- v.names
+global.era.mat <- as.data.frame(global.era.mat)
+
+# Read grid data
+gall <- cbind(read.csv(file.path(data_dir,"grid_data","g300_grid.csv")),
+              read.csv(file.path(data_dir,"grid_data","g500_grid.csv")),
+              read.csv(file.path(data_dir,"grid_data","g700_grid.csv")))
+
+# Read closed point for each station and concatenate in the global matrix
+for(ss in 1:nrow(stations)){
+  
+  cat(paste0("..",ss))
+  
+  # Concatenating indices
+  cidx1 <- 1+nrow(gall)*(ss-1)
+  cidx2 <- nrow(gall)*ss
+  
+  # Include variables of interest
+  fivep <- c(stations$point[ss], cpoints)
+  eranames <- paste(rep(eralevels, length(fivep)),
+                    rep(fivep, each = length(eralevels)),
+                    sep = ".")
+  # Add to matrix
+  global.era.mat[cidx1:cidx2,] <- gall[,match(eranames, names(gall))]
+  
+}# for ss stations
+
+# Combine global data.frame with ERA-5 variables
+global.model.mat <- cbind(global.model.mat,global.era.mat)
+
+# Define output directory to save the models
+outdir <- file.path(data_dir,"global_data")
+if(!dir.exists(outdir)) dir.create(outdir)
+
+# Write data.frame
+saveRDS(object = global.model.mat,
+        file = file.path(outdir, "global_df.rds"))
+
+```
