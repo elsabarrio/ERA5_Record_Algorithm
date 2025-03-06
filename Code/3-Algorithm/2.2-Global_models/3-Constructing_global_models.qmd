@@ -1,12 +1,12 @@
 ---
-title: "2-Final_models"
+title: "3-Global_models"
 format: html
 editor: visual
 ---
 
-## Create data frame with data for all stations
+## Load global data.frame and add lag1 variables
 
-To construct the final models, we first need to construct a data frame containing the data for all stations. To do so, we perform "column-wise concatenation". Specifically, we combine data from 36 separate stations, each corresponding to a different station, into a single larger data frame. Since these stations share some variables, the operation involves appending the columns of each station's data frame side by side, while the variables corresponding to the closest point to each of the stations are not the same, but we are gonna merge them into a unique variable.
+We begin by loading a global data.frame.
 
 ```{r}
 # Clear workspace
@@ -16,124 +16,63 @@ rm(list = ls())
 data_dir <- "../../../Data"
 if(!dir.exists(data_dir)) stop("data_dir not found")
 
-# Read list of observatories of interest. Based on previous work.
-stations <- read.csv(file.path(data_dir,"geo_peninsula_zones.csv"))
-idx <- which(!is.na(stations$Zona))
-stations <- stations[idx,]
-stations$point <- sapply(1:nrow(stations),
-                         function(x){
-                           aux <- as.character(round(stations$LON[x]))
-                           if(grepl("^-",aux)){
-                             aux <- paste0(substr(aux, 2, nchar(aux)),"W")
-                           } else aux <- paste0(aux,"E")
-                           })
-stations$point <- paste0(round(stations$LAT),"N.",
-                         stations$point)
-# Corner points
-cpoints <- c("45N.10W","45N.5E","35N.10W","35N.5E")
+# Load data.frame
+global.df <- readRDS(file.path(data_dir,"global_data","global_df.rds"))
 
-# Read Tx matrix
-# Read the data for maximum temperatures
-tx.mat <- read.csv(file.path(data_dir,"tx.data","Tx_mat.csv"))
-tx.mat$Date <- as.Date(tx.mat$Date)
-idx.y <- which(as.numeric(format(tx.mat$Date,"%Y")) > 1980 &
-               as.numeric(format(tx.mat$Date,"%Y")) < 2011)
-idx.d <- which(as.numeric(format(tx.mat$Date,"%m")) >=6 &
-               as.numeric(format(tx.mat$Date,"%m")) <= 8)
-stations$avg.Tx <- apply(X = tx.mat[intersect(idx.d,idx.y),-1],
-                         MARGIN = 2,
-                         FUN = function(x) mean(x, na.rm = T))/10
-stations$sd.Tx <- apply(X = tx.mat[intersect(idx.d,idx.y),-1],
-                         MARGIN = 2,
-                         FUN = function(x) sd(x, na.rm = T))/10
-
-# Read record indicators matrix
-itx.mat <- read.csv(file.path(data_dir,"record.data","record.matrix.csv"))
-itx.mat$Date <- as.Date(itx.mat$Date)
-
-# Reshape data
-TT <- length(table(format(itx.mat$Date,"%Y")))
-LL <- nrow(itx.mat)/TT
-SS <- nrow(stations)
-
-# Data directory
+# Load feature selected variables based on z-values
 outdir <- "../../../Results/final.models"
-if(!dir.exists(outdir)) dir.create(outdir, recursive = T)
+if(!dir.exists(outdir)) stop("outdir not found")
+fin.var <- readRDS(file.path(outdir,"final_variables.rds"))
 
-# Inint final data.frame
-global.model.mat <- data.frame(STAID = rep(stations$STAID, each = nrow(itx.mat)),
-                               Ix = c(as.matrix(itx.mat[,-1])),
-                               t = rep(rep(1:TT, each = LL), SS),
-                               l = rep(rep(1:LL, TT), SS),
-                               LAT = rep(stations$LAT, each = nrow(itx.mat)),
-                               LON = rep(stations$LON, each = nrow(itx.mat)),
-                               CoastDist = rep(stations$LAT, each = nrow(itx.mat)),
-                               avg.Tx = rep(stations$avg.Tx, each = nrow(itx.mat)),
-                               sd.Tx = rep(stations$sd.Tx, each = nrow(itx.mat)))
-
-# Variable names
-eralevels <- paste0("g",c("300","500","700"))
-# Corner points
-cpoints <- c("45N.10W","45N.5E","35N.10W","35N.5E")
-# Define variable names
-v.names <- paste(rep(eralevels, length(cpoints)+1),
-                 rep(c("",cpoints),each = length(eralevels)),
-                 sep = ".")
-
-# Global variables
-global.era.mat <- matrix(data = as.numeric(NA),
-                         nrow = nrow(global.model.mat),
-                         ncol = length(v.names))
-colnames(global.era.mat) <- v.names
-global.era.mat <- as.data.frame(global.era.mat)
-
-# Read grid data
-gall <- cbind(read.csv(file.path(data_dir,"grid_data","g300_grid.csv")),
-              read.csv(file.path(data_dir,"grid_data","g500_grid.csv")),
-              read.csv(file.path(data_dir,"grid_data","g700_grid.csv")))
-
-# Read closed point for each station and concatenate in the global matrix
-for(ss in 1:nrow(stations)){
+# Detect lag1 variables
+lag1idx <- grep(".lag1", fin.var)
+if(length(lag1idx)>0){
   
-  cat(paste0("..",ss))
+  # Load libraries
+  if(!is.element("dplyr", row.names(installed.packages()))) install.packages("dplyr")
+  library(dplyr)
   
-  # Concatenating indices
-  cidx1 <- 1+nrow(gall)*(ss-1)
-  cidx2 <- nrow(gall)*ss
-  
-  # Include variables of interest
-  fivep <- c(stations$point[ss], cpoints)
-  eranames <- paste(rep(eralevels, length(fivep)),
-                    rep(fivep, each = length(eralevels)),
-                    sep = ".")
-  # Add to matrix
-  global.era.mat[cidx1:cidx2,] <- gall[,match(eranames, names(gall))]
-  
-}# for ss stations
+  # Calculate lag1 variables
+  for(ii in 1:length(lag1idx)){
+    # Find variable
+    varname <- unlist(strsplit(x = fin.var[lag1idx[ii]], split = ".lag1"))
+    # Create lag1
+    if(!is.element(varname, names(global.df))) stop("Lag1 variable not found in global data.frame")
+    global.df[[fin.var[lag1idx[ii]]]] <- dplyr::lag(global.df[[varname]], 1, 0)
+    
+  }# for ii lag1 found
+}# if any lag1 found
 
-# Combine global data.frame with ERA-5 variables
-global.model.mat <- cbind(global.model.mat,global.era.mat)
+# Detect poly-2 variables
+poly2idx <- grep("poly", fin.var)
+fin.single <- fin.var
+if(length(poly2idx)>0){
+  for(ii in 1:length(poly2idx)){
+    fin.single[poly2idx[ii]] <- gsub(", 2[)]","",gsub("poly[(]","",fin.single[poly2idx[ii]]))
+  } 
+}
 
-# Define output directory to save the models
-outdir <- file.path(data_dir,"global_data")
-if(!dir.exists(outdir)) dir.create(outdir)
-
-# Write data.frame
-saveRDS(object = global.model.mat,
-        file = file.path(outdir, "global_df.rds"))
+# Check if all final local variables are included in the global data.frame
+if(!all(fin.single %in% names(global.df))) stop("Variable name not found in global data.frame")
 
 ```
+
 
 ## M1: Simple global model
 
 We begin by constructing a simple global model with the final variables selected from the local models as predictors.
 
 ```{r}
+
+# Load libraries
+if(!is.element("MASS", row.names(installed.packages()))) install.packages("MASS")
+library(MASS)
+
 # Define file path
-model_file <- file.path(wd, "Results/final.models/M1.RDS")
+model_file <- file.path(outdir, "m1.rds")
  
 # Set training set
-idx.train <- which(global.model.mat$t <= 51)
+idx.train <- which(global.df$t <= 51)
    
 # Check if file exists
 if (!file.exists(model_file)) {
@@ -143,53 +82,119 @@ if (!file.exists(model_file)) {
    frm.1 <- as.formula(paste0("Ix~", capture.output(cat(fin.var, sep = "+"))))
    
    # Fit model
-   full.M1 <- glm(formula = frm.1, data = global.model.mat[idx.train,], family = binomial(link = "logit"))
+   full.m1 <- glm(formula = frm.1,
+                  data = global.df[idx.train,],
+                  family = binomial(link = "logit"))
    
-   M1.0 <- update(full.M1, .~1)
+   # Apply a stringent stepAIC
+   m1.0 <- update(full.m1, .~1)
+   tic <- Sys.time()
+   m1 <- stepAIC(object = m1.0,
+                 direction = "both",
+                 scope = list(lower = m1.0, upper = full.m1),
+                 k = 10.82757)
+   toc <- Sys.time()
+   cat("M1: ")
+   print(toc-tic)
    
-   M1 <- stepAIC(M1.0, direction = "both", scope = list(lower = M1.0, upper = full.M1), k = 10.82757)
+   # If any poly-2 term-2 is not significant remove it
+   m1.frm <- as.character(m1$formula)
+   m1.coefs <- summary(m1)$coefficients
+   fin.var.m1 <- fin.var
+   # Detect poly-2 variables
+   poly2idx <- grep(", 2[)]2", rownames(m1.coefs))
+   if(length(poly2idx)>0){
+     
+     # Find any with abs z-value < 2
+     poly2z <- which(abs(m1.coefs[poly2idx,3])<2)
+     if(length(poly2z)>0){
+       
+       # If any below 2 then remove it
+       for(ii in 1:length(poly2z)){
+         # Substitute in formula
+         varname <- rownames(m1.coefs)[poly2idx[poly2z[ii]]]
+         varname <- gsub(", 2[)]2","",gsub("poly[(]","",varname))
+         m1.frm[3] <- gsub(pattern = paste0("poly[(]",varname,", 2[)]"),
+                           replacement = varname,
+                           x = m1.frm[3])
+         # Substitute in final variables
+         fin.var.m1[grep(paste0("poly[(]",varname,", 2[)]"),fin.var.m1)] <- varname
+         
+       }# for any poly term-2 z-value < 2
+     }# if poly term-2 z-value < 2
+   }# if poly2 term-2 > 0
    
+   # Re-formulate
+   m1.frm <- as.formula(paste(m1.frm[c(2,1,3)], collapse = " "))
+   m1.new <- glm(formula = m1.frm,
+                 data = global.df[idx.train,],
+                 family = binomial(link = "logit"))
+   print(AIC(m1.new,m1))
+   m1 <- m1.new
+
    # Save model
-   saveRDS(M1$formula, file = model_file)
+   saveRDS(m1.new$formula, file = model_file)
+   rm(full.m1, m1.new)
+   saveRDS(object = fin.var.m1, file = file.path(outdir,"final_variables_m1.rds"))
  } else {
    # File exists; read the formula
-   M1.formula <- readRDS(model_file)
+   m1.frm <- readRDS(model_file)
    
    # Compute the model
-   M1 <- glm(formula = M1.formula, data = global.model.mat[idx.train,], family = binomial(link = "logit"))
+   m1 <- glm(formula = m1.frm,
+             data = global.df[idx.train,],
+             family = binomial(link = "logit"))
+   
  }
 ```
 
-## M2
+## M2: M1 * (LAT+LON)
+
+Constructing a global model with interaction of the final variables selected 
+from the only geopotential variables (M1) with the interaction of latitude plus
+longitude.
 
 ```{r}
-model_file <- file.path(wd, "Results/final.models/M2.RDS")
+model_file <- file.path(outdir, "m2.rds")
 
 # Check if file exists
 if (!file.exists(model_file)) {
   
   # File does not exist; run the code to compute and save the model
+  fin.var.m1 <- readRDS(file.path(outdir,"final_variables_m1.rds"))
   # Get formula
-  frm.2 <- as.formula(paste0("Ix~ (",capture.output(cat(fin.var, sep = "+")),") * LAT * LON "))
+  frm.2 <- as.formula(paste0("Ix~ (",capture.output(cat(fin.var.m1, sep = "+")),") * (LAT + LON) "))
   
   # Define model before step
-  full.M2 <- glm(formula = frm.2, data = global.model.mat[idx.train,], family = binomial(link = "logit"))
+  full.m2 <- glm(formula = frm.2,
+                 data = global.df[idx.train,],
+                 family = binomial(link = "logit"))
   
   # Set model for lower scope
-  M2.0 <- update(full.M2, .~1)
+  m2.0 <- update(full.m2, .~1)
   
   # Run step
-  M2 <- stepAIC(M2.0, direction = "both", scope = list(lower = M2.0, upper = full.M2), k = 10.82757)
+  tic <- Sys.time()
+  m2 <- stepAIC(object = m2.0,
+                direction = "both",
+                scope = list(lower = m2.0, upper = full.m2),
+                k = 10.82757)
+  toc <- Sys.time()
+  cat("M2: ")
+  print(toc-tic)
   
-  saveRDS(M2$formula, file = file.path(wd,"Results/final.models/M2.RDS"))
-  # Save model
+  # Save model 
+  saveRDS(m2$formula, file = model_file)
+  
   } else {
     
   # File exists; read the formula
-  M2.formula <- readRDS(model_file)
+  m2.frm <- readRDS(model_file)
   
   # Compute the model
-  M2 <- glm(formula = M2.formula, data = global.model.mat[idx.train,], family = binomial(link = "logit"))
+  m2 <- glm(formula = m2.frm,
+            data = global.df[idx.train,],
+            family = binomial(link = "logit"))
   
 }
 ```

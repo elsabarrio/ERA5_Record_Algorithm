@@ -55,17 +55,19 @@ In the code cell below we create the four local models for each station and save
 
 ```{r}
 
-# Load libraries
-if(!is.element("MASS", row.names(installed.packages()))) install.packages("MASS")
-library(MASS)
-if(!is.element("pROC", row.names(installed.packages()))) install.packages("pROC")
-library(pROC)
-
 # Define output directory to save the models
 outdir <- "../../../Results/local.models"
 
 # Start loop to construct the local models
 if(!dir.exists(outdir)){
+  
+  # Load libraries
+  if(!is.element("dplyr", row.names(installed.packages()))) install.packages("dplyr")
+  library(dplyr)
+  if(!is.element("MASS", row.names(installed.packages()))) install.packages("MASS")
+  library(MASS)
+  if(!is.element("pROC", row.names(installed.packages()))) install.packages("pROC")
+  library(pROC)
   
   # Create output directory to save the models
   dir.create(outdir, recursive = T)
