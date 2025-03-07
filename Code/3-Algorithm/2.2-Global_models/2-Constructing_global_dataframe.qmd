@@ -67,7 +67,8 @@ global.model.mat <- data.frame(STAID = rep(stations$STAID, each = nrow(itx.mat))
                                l = rep(rep(1:LL, TT), SS),
                                LAT = rep(stations$LAT, each = nrow(itx.mat)),
                                LON = rep(stations$LON, each = nrow(itx.mat)),
-                               CoastDist = rep(stations$LAT, each = nrow(itx.mat)),
+                               Altitude = rep(stations$HGHT, each = nrow(itx.mat)),
+                               CoastDist = rep(stations$CoastDist, each = nrow(itx.mat)),
                                avg.Tx = rep(stations$avg.Tx, each = nrow(itx.mat)),
                                sd.Tx = rep(stations$sd.Tx, each = nrow(itx.mat)))
 

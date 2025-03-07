@@ -218,7 +218,7 @@ if (!file.exists(model_file)) {
   # File does not exist; run the code to compute and save the model
   fin.var.m1 <- readRDS(file.path(outdir,"final_variables_m1.rds"))
   # Get formula
-  frm.3 <- as.formula(paste0("Ix~ (",capture.output(cat(fin.var.m1, sep = "+")),") * avg.Tx * sd.Tx "))
+  frm.3 <- as.formula(paste0("Ix~ (",capture.output(cat(fin.var.m1, sep = "+")),") * (avg.Tx + sd.Tx) "))
   
   # Define model before step
   full.m3 <- glm(formula = frm.3,
@@ -238,7 +238,7 @@ if (!file.exists(model_file)) {
   toc <- Sys.time()
   cat("M3: ")
   print(toc-tic)
-  # Time difference of 40.56557 mins
+  # Time difference of 34.34422 mins
   
   # Save model 
   m3.frm <- m3$formula
@@ -257,38 +257,110 @@ if (!file.exists(model_file)) {
 }
 ```
 
-## M4
+## M4: M1 * (altitude + log(oast distance))
+
+Constructing a global model with interaction of the final variables selected 
+from the only geopotential variables (M1) with the interaction of altitude and 
+the natural logarithm of distance to the coast.
 
 ```{r}
 # Define file path
-model_file <- file.path(wd, "Results/final.models/M4.RDS")
+model_file <- file.path(outdir, "m4.rds")
 
 # Check if file exists
-if (!file.exists(model_file)) {
+if(!file.exists(model_file)) {
   
   # File does not exist; run the code to compute and save the model
+  fin.var.m1 <- readRDS(file.path(outdir,"final_variables_m1.rds"))
   # Get formula
-  frm.4 <- as.formula(paste0("Ix~ (",capture.output(cat(fin.var, sep = "+")),") * Altitude * log(CoastDist) "))
+  frm.4 <- as.formula(paste0("Ix~ (",capture.output(cat(fin.var.m1, sep = "+")),") * (Altitude + log(CoastDist)) "))
   
   # Define model before step
-  full.M4 <- glm(formula = frm.4, data = global.model.mat[idx.train,], family = binomial(link = "logit"))
+  full.m4 <- glm(formula = frm.4,
+                 data = global.df[idx.train,],
+                 family = binomial(link = "logit"))
   
   # Set model for lower scope
-  M4.0 <- update(full.M4, .~1)
+  m4.0 <- update(full.m4, .~1)
   
   # Run step
-  M4 <- stepAIC(M4.0, direction = "both", scope = list(lower = M4.0, upper = full.M4), k = 10.82757)
+  tic <- Sys.time()
+  m4 <- stepAIC(object = m4.0,
+                direction = "both",
+                scope = list(lower = m4.0, upper = full.m4),
+                k = 10.82757)
+  toc <- Sys.time()
+  cat("M4: ")
+  print(toc-tic)
+  # Time difference of 19.94456 mins
   
-  # Save model
-  saveRDS(M4$formula, file = file.path(wd,"Results/final.models/M4.RDS"))
+  # Save model 
+  m4.frm <- m4$formula
+  saveRDS(m4$formula, file = model_file)
 
 } else {
   
   # File exists; read the formula
-  M4.formula <- readRDS(model_file)
+  m4.frm <- readRDS(model_file)
   
   # Compute the model
-  M4 <- glm(formula = M4.formula, data = global.model.mat[idx.train,], family = binomial(link = "logit"))
+  m4 <- glm(formula = m4.frm,
+            data = global.df[idx.train,],
+            family = binomial(link = "logit"))
+  
+}
+```
+
+## M5: M1 * geodesic * climatic * geographic
+
+Constructing a global model with interaction of the final variables selected 
+from the only geopotential variables (M1) with the interaction of geodesic
+(latitude and longitude), climatic (average and SD Tx), and geographical (altitude and log(CoastDist)) variables.
+
+```{r}
+# Define file path
+model_file <- file.path(outdir, "m5.rds")
+
+# Check if file exists
+if(!file.exists(model_file)) {
+  
+  # File does not exist; run the code to compute and save the model
+  fin.var.m1 <- readRDS(file.path(outdir,"final_variables_m1.rds"))
+  # Get formula
+  frm.5 <- as.formula(paste0("Ix~ (",capture.output(cat(fin.var.m1, sep = "+")),") * (LAT + LON) * (avg.Tx + sd.Tx) * (Altitude + log(CoastDist)) "))
+  
+  # Define model before step
+  full.m5 <- glm(formula = frm.5,
+                 data = global.df[idx.train,],
+                 family = binomial(link = "logit"))
+  
+  # Set model for lower scope
+  m5.0 <- update(full.m5, .~1)
+  
+  # Run step
+  tic <- Sys.time()
+  m4 <- stepAIC(object = m5.0,
+                direction = "both",
+                scope = list(lower = m5.0, upper = full.m5),
+                k = 10.82757)
+  toc <- Sys.time()
+  cat("M5: ")
+  print(toc-tic)
+  # Time difference of 41.21845 mins
+  
+  # Save model 
+  m5.frm <- m5$formula
+  saveRDS(m5$formula, file = model_file)
+
+} else {
+  
+  # File exists; read the formula
+  m5.frm <- readRDS(model_file)
+  
+  # Compute the model
+  m5 <- glm(formula = m5.frm,
+            data = global.df[idx.train,],
+            family = binomial(link = "logit"))
   
 }
 ```
