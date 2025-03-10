@@ -57,6 +57,7 @@ if(!all(fin.single %in% names(global.df))) stop("Variable name not found in glob
 
 ```
 
+
 ## M1: Simple global model
 
 We begin by constructing a simple global model with the final variables selected from the local models as predictors.
@@ -135,13 +136,24 @@ if (!file.exists(model_file)) {
    saveRDS(m1.new$formula, file = model_file)
    rm(full.m1, m1.new)
    saveRDS(object = fin.var.m1, file = file.path(outdir,"final_variables_m1.rds"))
-}
+ } else {
+   # File exists; read the formula
+   m1.frm <- readRDS(model_file)
+   
+   # Compute the model
+   m1 <- glm(formula = m1.frm,
+             data = global.df[idx.train,],
+             family = binomial(link = "logit"))
+   
+ }
 
 ```
 
-## M2: M1 \* (LAT+LON)
+## M2: M1 * (LAT+LON)
 
-Constructing a global model with interaction of the final variables selected from the only geopotential variables (M1) with the interaction of latitude plus longitude.
+Constructing a global model with interaction of the final variables selected 
+from the only geopotential variables (M1) with the interaction of latitude plus
+longitude.
 
 ```{r}
 model_file <- file.path(outdir, "m2.rds")
@@ -177,13 +189,26 @@ if(!file.exists(model_file)) {
   m2.frm <- m2$formula
   saveRDS(m2$formula, file = model_file)
   
-  }
+  } else {
+    
+  # File exists; read the formula
+  m2.frm <- readRDS(model_file)
+  
+  # Compute the model
+  m2 <- glm(formula = m2.frm,
+            data = global.df[idx.train,],
+            family = binomial(link = "logit"))
+  
+}
 
 ```
 
-## M3: M1 \* (avg.Tx + sd.Tx)
+## M3: M1 * (avg.Tx + sd.Tx)
 
-Constructing a global model with interaction of the final variables selected from the only geopotential variables (M1) with the interaction of average and SD of Tx for the reference period (1981-2010).
+Constructing a global model with interaction of the final variables selected 
+from the only geopotential variables (M1) with the interaction of average and SD of Tx for the reference
+period (1981-2010).
+
 
 ```{r}
 # Define file path
@@ -221,13 +246,24 @@ if (!file.exists(model_file)) {
   m3.frm <- m3$formula
   saveRDS(m3$formula, file = model_file)
 
-} 
+} else {
+  
+  # File exists; read the formula
+  m3.frm <- readRDS(model_file)
+  
+  # Compute the model
+  m3 <- glm(formula = m3.frm,
+            data = global.df[idx.train,],
+            family = binomial(link = "logit"))
 
+}
 ```
 
-## M4: M1 \* (altitude + log(coast distance))
+## M4: M1 * (altitude + log(coast distance))
 
-Constructing a global model with interaction of the final variables selected from the only geopotential variables (M1) with the interaction of altitude and the natural logarithm of distance to the coast.
+Constructing a global model with interaction of the final variables selected 
+from the only geopotential variables (M1) with the interaction of altitude and 
+the natural logarithm of distance to the coast.
 
 ```{r}
 # Define file path
@@ -264,13 +300,24 @@ if(!file.exists(model_file)) {
   m4.frm <- m4$formula
   saveRDS(m4$formula, file = model_file)
 
+} else {
+  
+  # File exists; read the formula
+  m4.frm <- readRDS(model_file)
+  
+  # Compute the model
+  m4 <- glm(formula = m4.frm,
+            data = global.df[idx.train,],
+            family = binomial(link = "logit"))
+  
 }
-
 ```
 
-## M5: M1 \* geodesic \* climatic \* geographic
+## M5: M1 * geodesic * climatic * geographic
 
-Constructing a global model with interaction of the final variables selected from the only geopotential variables (M1) with the interaction of geodesic (latitude and longitude), climatic (average and SD Tx), and geographical (altitude and log(CoastDist)) variables.
+Constructing a global model with interaction of the final variables selected 
+from the only geopotential variables (M1) with the interaction of geodesic
+(latitude and longitude), climatic (average and SD Tx), and geographical (altitude and log(CoastDist)) variables.
 
 ```{r}
 # Define file path
@@ -307,6 +354,107 @@ if(!file.exists(model_file)) {
   m5.frm <- m5$formula
   saveRDS(m5$formula, file = model_file)
 
+} else {
+  
+  # File exists; read the formula
+  m5.frm <- readRDS(model_file)
+  
+  # Compute the model
+  m5 <- glm(formula = m5.frm,
+            data = global.df[idx.train,],
+            family = binomial(link = "logit"))
+  
+}
+```
+
+## Model's AUCs
+
+```{r}
+if(!is.element("MASS", row.names(installed.packages()))) install.packages("MASS")
+library(MASS)
+if(!is.element("pROC", row.names(installed.packages()))) install.packages("pROC")
+library(pROC)
+
+# Calculate full test AUC and coast test AUC
+df.test <- global.model.mat[-idx.train,]
+
+# Create matrices to save results
+AUC.station.mat <- matrix(nrow = 4, ncol = nrow(stations))
+colnames(AUC.station.mat) <- unique(global.model.mat$STAID)
+final.models.mat <- matrix(nrow = 4, ncol = 5)
+colnames(final.models.mat) <- c('k', "AUC", "AUC.coast", "AUC.inner", "AIC")
+
+for (i in 1:4){
+  
+  # Get model
+  model <- get(paste0('M',i))
+  
+  # Get number of parameters
+  k <- length(coef(model))
+  
+  # Get global AUC
+  predict.aux <- predict(model,newdata = df.test,type = "response")
+  roc.aux <- roc(df.test$Ix, predict.aux, print.auc = TRUE)
+  global.auc <- auc(roc.aux)
+  
+  # Get AUC from stations near the coast
+  df.coast <- df.test[df.test$CoastDist < 50,]
+  predict.coast <- predict(model,newdata = df.coast,type = "response")
+  roc.coast <- roc(df.coast$Ix, predict.coast, print.auc = TRUE)
+  coast.auc <- auc(roc.coast)
+  
+  # Get AUC from inner stations
+  df.inner <- df.test[df.test$CoastDist> 50,]
+  predict.inner <- predict(model,newdata = df.inner,type = "response")
+  roc.inner <- roc(df.inner$Ix, predict.inner, print.auc = TRUE)
+  inner.auc <- auc(roc.inner)
+  
+  # Get AIC value
+  AIC.aux <- AIC(model)
+  
+  # Save measures in matrix
+  final.models.mat[i,] <- c(k, global.auc, coast.auc, inner.auc, AIC.aux)
+  
+  # Get AUC values at each station
+  for (staid in unique(global.model.mat$STAID)){
+    
+    # Get indices
+    idx.AUC <- which(df.test$STAID == staid)
+    
+    # Calculate AUC
+    roc.station <- roc(df.test[idx.AUC,]$Ix, predict.aux[idx.AUC], print.auc = TRUE)
+    AUC.station<- auc(roc.station)
+    
+    # Save AUC
+    AUC.station.mat[i, staid] <- AUC.station
+}
+  
 }
 
+# Save matrices
+if (!file.exists(file.path(wd, 'Results/global.AUC.csv'))) {
+  write.csv2(AUC.station.mat, file = file.path(wd, 'Results/global.AUC.csv'))
+}
+
+if (!file.exists(file.path(wd, 'Results/final.models.performance.csv'))) {
+  write.csv2(final.models.mat, file = file.path(wd, 'Results/final.models.performance.csv'))
+}
+```
+
+## Save M2 predict
+
+```{r}
+
+# Get global AUC
+M2.predict <- predict(M2,newdata = df.test,type = "response")
+
+M2.predict.df <- data.frame(STAID = df.test$STAID,
+                            predict.test = M2.predict,
+                            t = df.test$t,
+                            l = rep(1:92, times = length(unique(df.test$t)*length(unique(df.test$STAID)))))
+
+# Save M2 model's predict
+if (!file.exists(file.path(wd, 'Results/M2.predict.csv'))) {
+    write.csv2(M2.predict.df, file = file.path(wd, 'Results/M2.predict.csv'), row.names = FALSE)
+}
 ```
