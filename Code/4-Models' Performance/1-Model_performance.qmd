@@ -137,9 +137,11 @@ mls <- gsub("[.]frm", "", ls()[grep("[.]frm",ls())])
 if(!is.element("pROC", row.names(installed.packages()))) install.packages("pROC")
 library(pROC)
 
-# Create output directory
+# Create output directories
 auc_dir <- file.path(outdir,"AUC")
 if(!dir.exists(auc_dir)) dir.create(auc_dir)
+pred_dir <- file.path(outdir,"Predicts")
+if(!dir.exists(pred_dir)) dir.create(pred_dir)
 
 # Read list of observatories of interest. Based on previous work.
 stations <- read.csv(file.path(data_dir,"geo_peninsula_zones.csv"))
@@ -211,6 +213,15 @@ for(mm in 1:length(mls)){
     
   }# for ss stations
   
+  # Save predicts
+  pred_vars <- c("STAID","Ix","t","l")
+  pred_df <- (global.df[-idx.train,])[pred_vars]
+  pred_df$preds <- predict.aux
+  outname <- paste0("preds_",mls[mm],".csv")
+  write.csv(x = pred_df, 
+            file = file.path(pred_dir,outname),
+            row.names = F)
+  
   # Save results
   outname <- paste0("auc_staid_",mls[mm],".csv")
   write.csv(x = staid_df, 
@@ -254,9 +265,6 @@ colorcito <- brewer.pal(n = 8, name = "Set1")
 # Order from closest to the coast to furthest
 stations <- stations[order(stations$CoastDist),]
 
-# Define x labels
-x_labels <- stations$abb
-
 # Create plot with M0, M1 and M2 models
 g1 <- ggplot(data = stations, aes(x = 1:nrow(stations))) +
   geom_point(aes(y = m0, color = "M0"), na.rm = TRUE, shape = 15, size = 3) +
@@ -277,19 +285,29 @@ g1 <- ggplot(data = stations, aes(x = 1:nrow(stations))) +
   theme(axis.text.x = element_text(angle = 55, hjust = 1,  face = "bold")) +
   geom_vline(xintercept = 16.5, linetype = "dashed", color = "black", linewidth = 0.5)
 
+# Show plot
 show(g1)
 
 # Save plot
-if (!file.exists(file.path(wd, 'Results/AUC.M0.M1.M2.pdf'))) {
-    ggsave(filename = file.path(wd, 'Results/AUC.M0.M1.M2.pdf.pdf'), plot = g1, device = 'pdf', width = 6, height = 4)
+outname <- paste0("plot_auc_m0m1m2m3.pdf")
+if(!file.exists(file.path(auc_dir,outname))) {
+    ggsave(filename = file.path(auc_dir,outname),
+           plot = g1,
+           device = "pdf",
+           width = 6,
+           height = 4)
 }
 ```
 
+
+
 ```{r}
-g2 <- ggplot(data = AUC.final, aes(x = 1:nrow(AUC.final))) +
-  geom_point(aes(y = M2, color = "M2"), na.rm = TRUE, shape = 17, size = 3) +
-  geom_point(aes(y = M3, color = "M3"), na.rm = TRUE, shape = 18, size = 3) +
-  geom_point(aes(y = M4, color = "M4"), na.rm = TRUE, shape = 19, size = 3) +
+
+# Only interaction models
+g2 <- ggplot(data = stations, aes(x = 1:nrow(stations))) +
+  geom_point(aes(y = m2, color = "M2"), na.rm = TRUE, shape = 17, size = 3) +
+  geom_point(aes(y = m3, color = "M3"), na.rm = TRUE, shape = 18, size = 3) +
+  geom_point(aes(y = m4, color = "M4"), na.rm = TRUE, shape = 19, size = 3) +
   labs(title = "Comparison of AUCs of final models",
        y = "AUC",
        x = "Station") +
@@ -298,15 +316,20 @@ g2 <- ggplot(data = AUC.final, aes(x = 1:nrow(AUC.final))) +
                      values = c("M2" = colorcito[3],
                                 "M3" = colorcito[4],
                                 "M4" = colorcito[5])) +
-  scale_x_discrete(labels = x_labels, limits = factor(1:length(x_labels))) + 
+  scale_x_discrete(labels = stations$abb, limits = factor(1:nrow(stations))) + 
   theme_bw() +
   theme(axis.text.x = element_text(angle = 55, hjust = 1,  face = "bold")) +
   geom_vline(xintercept = 16.5, linetype = "dashed", color = "black", size = 0.5)
-
+# Show plot
 show(g2)
 
 # Save plot
-if (!file.exists(file.path(wd, 'Results/AUC.M2.M3.M4.pdf'))) {
-    ggsave(filename = file.path(wd, 'Results/AUC.M2.M3.M4..pdf.pdf'), plot = g2, device = 'pdf', width = 6, height = 4)
+outname <- paste0("plot_auc_m2m3m4.pdf")
+if(!file.exists(file.path(auc_dir,outname))) {
+    ggsave(filename = file.path(auc_dir,outname),
+           plot = g2,
+           device = "pdf",
+           width = 6,
+           height = 4)
 }
 ```
