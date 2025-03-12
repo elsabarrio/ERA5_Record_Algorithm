@@ -74,56 +74,61 @@ if(!file.exists(file.path(outdir,outname))){
 ## True streaks plot with confidence intervals
 
 ```{r}
-# Read models predict
-predict.df <- read.csv2(file.path(wd,"Results/M2.predict.csv"))
 
-# Define number of stations
-lon.stat <- 36
+# Get prediction directory
+pred_dir <- "../../Results/final.models/Predicts/"
+if(!dir.exists(pred_dir)) stop("Predicts directory not found")
 
-# Read the real streaks
-res.true <- results
+# Read models predict for model M2
+pred_df <- read.csv(file.path(pred_dir,"preds_m2.csv"))
+test_tt <- min(pred_df$t):max(pred_df$t)
 
 # Create empty matrix to fill with the true probabilities
-true.probs <- matrix(0, nrow = lon.stat, ncol = 5)
+obs_probs <- matrix(0, nrow = SS, ncol = 5)
 
 # Create a loop to obtain the probabilities of different streaks lengths
 # per station for all the test period
-for (stat in 1:ncol(res.true)){
-  aux.streaks <- vector('numeric')
-  for(year in min(predict.df$t):max(predict.df$t)){
-    aux.streaks <- c(aux.streaks, res.true[[year,stat]]$lengths)
+for(ss in 1:SS){
+  
+  cat(paste0("...",ss))
+  
+  # Initiate object
+  aux.streaks <- vector("numeric")
+  for(tt in test_tt){
+    aux.streaks <- c(aux.streaks, runs_ls[[tt,ss]]$lengths)
   }
   
+  # Frequency table of observed probabilities
   table.prob <- table(aux.streaks)/sum(table(aux.streaks))
   
+  # Store in matrix
   idx.num <- which(names(table.prob) == 1)
-  if (length(idx.num) > 0) true.probs[stat,1] <- table.prob[idx.num]
+  if (length(idx.num) > 0) obs_probs[ss,1] <- table.prob[idx.num]
   
   idx.num <- which(names(table.prob) == 2)
-  if (length(idx.num) > 0) true.probs[stat,2] <- table.prob[idx.num]
+  if (length(idx.num) > 0) obs_probs[ss,2] <- table.prob[idx.num]
   
   idx.num <- which(names(table.prob) == 3)
-  if (length(idx.num) > 0) true.probs[stat,3] <- table.prob[idx.num]
+  if (length(idx.num) > 0) obs_probs[ss,3] <- table.prob[idx.num]
   
   idx.num <- which(names(table.prob) == 4)
-  if (length(idx.num) > 0) true.probs[stat,4] <- table.prob[idx.num]
+  if (length(idx.num) > 0) obs_probs[ss,4] <- table.prob[idx.num]
   
   idx.num <- which(names(table.prob) >= 5)
-  if (length(idx.num) > 0) true.probs[stat,5] <- sum(table.prob[idx.num])
+  if (length(idx.num) > 0) obs_probs[ss,5] <- sum(table.prob[idx.num])
   
-  
-}
+}# for ss stations
 
 # Create a data frame and add the errors for the streaks probabilities
 mat.true.errors <- matrix(ncol = 2, nrow = 5)
 colnames(mat.true.errors) <- c("t.min","t.max")
 rownames(mat.true.errors) <- c("1","2","3","4","5")
 
-for (i in 1:nrow(mat.true.errors)) mat.true.errors[i,] <- quantile(true.probs[,i], probs = c(0.025,0.975))
+for (i in 1:nrow(mat.true.errors)) mat.true.errors[i,] <- quantile(obs_probs[,i], probs = c(0.025,0.975))
 
 # Now add the true probabilities to the data frame
 true.df <- as.data.frame(mat.true.errors)
-true.df$true.probs <- apply(true.probs, 2, mean)
+true.df$true.probs <- apply(obs_probs, 2, mean)
 true.df$value <- 1:5
 
 # Now create a plot to show the true probabilities with their error bars
@@ -150,8 +155,42 @@ g.plot.true
 ```{r}
 # Now make simulated probabilities using a certain model
 
-# Define needed variables
-lon.all <- length(predict.df$predict.test)
+# Define input variables
+n_sim <- 1000
+
+# Create empty volume to fill with the simulated probabilities
+sim_probs <- array(data = 0,
+                   dim = c(SS, ncol(obs_probs), 1+n_sim))
+sim_probs[,,1] <- obs_probs
+
+# Create simulated streaks
+isim3d <- 
+
+
+# For each simulation
+for(nn in 1:n_sim){
+  
+# Apply the function for each year and station
+runs_ls <- array(list(), dim = c(TT, SS))
+for(tt in 1:TT){
+  for(ss in 1:SS) {
+    series <- itx3d[tt, ,ss]
+    runs_ls[[tt,ss]] <- count_ones_runs_with_days(series)
+  }# for ss station
+}# for tt year
+colnames(runs_ls) <- stations$STAID
+  
+  
+}# for nn simulation
+
+
+# View an example of the results for the first year and the first station
+print(runs_ls[[64,1]])
+
+
+
+
+lon.all <- length(pred_df$preds)
 lon.year.test <- length(table(predict.df$t))
 lon.day <- 92
 lon.indiv <- lon.all/lon.stat
