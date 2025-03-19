@@ -190,14 +190,14 @@ if(!file.exists(file.path(outdir,outname))){
 
 ```{r}
 
-
-
 # Create a data frame and add the errors for the streaks probabilities
 mat.true.errors <- matrix(ncol = 2, nrow = 5)
 colnames(mat.true.errors) <- c("t.min","t.max")
 rownames(mat.true.errors) <- c("1","2","3","4","5")
 
-for (i in 1:nrow(mat.true.errors)) mat.true.errors[i,] <- quantile(obs_probs[,i], probs = c(0.025,0.975))
+for(i in 1:nrow(mat.true.errors)){
+  mat.true.errors[i,] <- quantile(sim_probs[,i,1], probs = c(0.025,0.975))
+} 
 
 # Now add the true probabilities to the data frame
 true.df <- as.data.frame(mat.true.errors)
@@ -220,15 +220,14 @@ g.plot.true <- ggplot(true.df, aes(x = value, y = true.probs)) +
     plot.title = element_text(hjust = 0.5)
   )
 
-g.plot.true
-
+show(g.plot.true)
 
 # Calculate the confidence intervals for the simulated probabilities
-sim.errors <- apply(sim.probs, c(2,3), quantile,probs = c(0.025,0.975))
+sim.errors <- apply(sim_probs[,,-1], c(2,3), quantile,probs = c(0.025,0.975))
 sim.errors.avg <- apply(sim.errors, c(1,2), mean)
 
 # Calculate the values for the simulated probabilities
-sim.probs.avg <- apply(sim.probs, 2, mean)
+sim.probs.avg <- apply(sim_probs[,,-1], 2, mean)
 
 # Create a data frame and add the errors for the simulated streaks probabilities
 sim.errors.df <- data.frame(s.min = sim.errors.avg[1,],
@@ -237,7 +236,6 @@ sim.errors.df <- data.frame(s.min = sim.errors.avg[1,],
                             value = 1:5)
 
 # Now create a plot to show the simulated probabilities with their error bars
-library(ggplot2)
 g.plot.sim <- ggplot(sim.errors.df, aes(x = value, y = sim.prob)) +
   geom_point(aes(color = "Simulated") , shape = 21,fill = "blue", color = "blue",size = 2) +
   geom_errorbar(aes(ymin = s.min, ymax = s.max, color = "Simulated"), width = 0) +
@@ -251,7 +249,7 @@ g.plot.sim <- ggplot(sim.errors.df, aes(x = value, y = sim.prob)) +
     legend.justification = c("right", "top"), 
     plot.title = element_text(hjust = 0.5)
   )
-g.plot.sim
+show(g.plot.sim)
 ```
 
 ## Create plot with real streaks and simulated ones
@@ -290,14 +288,21 @@ combined_plot <- ggplot() +
   )
 
 # Print the combined plot
-print(combined_plot)
+show(combined_plot)
 ```
 
 ## Save final plot
 
 ```{r}
 # Save M2 model's predict
-if (!file.exists(file.path(wd, 'Results/Sreaks.simulation.pdf'))) {
-    ggsave(filename = file.path(wd, 'Results/Sreaks.simulation.pdf'), plot = combined_plot, device = 'pdf', width = 6, height = 4)
+
+outname <- "streaks_sim_m2.pdf"
+if(!file.exists(file.path(outdir,outname))){
+  # Save results
+  ggsave(filename = file.path(outdir,outname),
+         plot = combined_plot,
+         device = 'pdf',
+         width = 6,
+         height = 4)
 }
 ```
