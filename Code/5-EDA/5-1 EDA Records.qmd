@@ -1,0 +1,312 @@
+---
+title: "5.1 EDA records"
+format: html
+editor: visual
+---
+
+## Exploratory data analysis (EDA) for breaking-records
+
+EDA for the daily maximum temperature ($T_x$) and geopotential heigth (G).
+
+### Daily maximum temperature ($T_x$)
+
+```{r}
+# Clear workspace
+rm(list = ls())
+
+# Set data directory
+data_dir <- "../../Data"
+if(!dir.exists(data_dir)) stop("data_dir not found")
+
+# Read list of observatories of interest. Based on previous work.
+stations <- read.csv(file.path(data_dir,"geo_peninsula_zones.csv"))
+idx <- which(!is.na(stations$Zona))
+stations <- stations[idx,]
+
+# Read Tx record data
+itx3d <- readRDS(file = file.path(data_dir, "record.data", "recordvol.rds"))
+
+```
+
+```{r}
+# Clear workspace
+rm(list = ls())
+
+# Load libraries
+if(!is.element("ggplot2", row.names(installed.packages()))) install.packages("ggplot2")
+library(ggplot2)
+if(!is.element("RColorBrewer", row.names(installed.packages()))) install.packages("RColorBrewer")
+library(RColorBrewer)
+if(!is.element("maps", row.names(installed.packages()))) install.packages("maps")
+library(maps)
+
+# Set data directory
+data_dir <- file.path(getwd(),"Data")
+if(!dir.exists(data_dir)) stop("data_dir not found")
+
+# Read list of observatories of interest. Based on previous work.
+stations <- read.csv("Data/geo_peninsula_zones.csv")
+
+# Read Tx data
+tx <- read.csv(file = file.path(data_dir,"Tx_mat.csv"))
+tn <- read.csv(file = file.path(data_dir,"Tn_mat.csv"))
+# Reshape data
+LL <- 365
+TT <- nrow(tx)/LL
+SS <- nrow(stations)
+tx3d <- array(data = as.matrix(tx[,-1]), dim = c(LL,TT,SS))
+if(sum(is.na(tx3d))>0) tx3d[is.na(tx3d)] <- -9999 # Remove NAs
+
+# Set seasons
+summer_idx <- c(152:243)
+# Remove extra stations
+station_idx <- which(!is.na(stations$Zona))
+
+# Compute upper records (indicators) for summer data only
+upp.rcrd <- function(x) c(1,as.numeric(diff(cummax(x))>0))
+itx3d <- apply(X = tx3d[summer_idx,,station_idx], MARGIN = c(1,3), upp.rcrd)
+voldim <- dim(itx3d)
+
+# Data directory
+outdir <- file.path(getwd(),"Results","Exploratory","Trends")
+if(!dir.exists(outdir)) dir.create(outdir, recursive = T)
+
+# Modify Barcelona-Airport label
+stations$STANAME[10] <- "FABRA OBSERVATORY                       "
+stations$STANAME[25] <- "BCN/AEROPUERTO                          "
+stations$abb <- substr(stations$STANAME,1,6)
+
+# Response trends
+# Compute yearly trend
+trend_tx <- apply(X = itx3d, MARGIN = 1, function(x) mean(x, na.rm = T))
+# Plot inputs
+trnd_df <- data.frame(Itx=trend_tx,
+                      t=1:voldim[1])
+# Plot
+g1a <- ggplot(data = trnd_df,
+              mapping =  aes(x=t)) +
+  geom_hline(yintercept=1, color = "gray") +
+  geom_line(aes(y=Itx*t), color="black") +
+  geom_smooth(aes(y=Itx*t), color="black", se = F, linetype = "dashed") +
+  ylim(c(0, NA)) +
+  ylab(expression(t%*%hat(p)[t])) +
+  xlab("t (year)") +
+  scale_x_continuous(breaks = c(1, 21, 41, 61),
+                     labels = c("1 (1960)", "21 (1980)", "41 (2000)", " 61 (2020)")) +
+  theme_bw()
+show(g1a)
+ggsave(filename = "trend_pt_tx.pdf",
+       plot = g1a,
+       device = "pdf",
+       path = outdir,
+       width = 5,
+       height = 4)
+
+# Plot by geographic zone
+stations36 <- stations[station_idx,]
+stations36$Zona <- factor(stations36$Zona)
+levels(stations36$Zona) <- c("A","C","E","G","L","NP","SP")
+
+# Stations and colors by zone
+outfile <- file.path(outdir,"map_colzone.pdf")
+pdf(file = outfile, width = 4, height = 4)
+# Mapa with Iberic peninsula plus Balear islands
+map(regions=sov.expand(c("Spain", "Portugal")),
+    #mar = c(0,0,0,0),
+    xlim=c(-10,5))
+# Set zone colors for each station
+auxcol <- brewer.pal(7, "Set1")[as.integer(stations36$Zona)]
+# Include the stations points
+points(x = stations36$LON,
+       y = stations36$LAT,
+       col = "black",
+       bg = auxcol, 
+       pch = 21,
+       cex = 1.5)
+#abline(h=c(36:44), v=c(-10:10), lty=3)
+dev.off()
+
+# Probability of record trends by zone (Tx)
+
+# Compute yearly trend by group
+trend_tx <- apply(X = itx3d, MARGIN = c(1,3), function(x) mean(x, na.rm = T))
+# Average by zones
+trend_zn <- aggregate(x = t(trend_tx), by = list(stations36$Zona), FUN=mean) 
+# Plot inputs
+trend_df <- data.frame(p = c(t(as.matrix(trend_zn[,-1]))),
+                       Zone = rep(levels(stations36$Zona), each = TT),
+                       t = rep(1:TT,nlevels(stations36$Zona)))
+# Figure
+g1c <- ggplot(data = trend_df,
+              mapping =  aes(x=t, y=p*t, color = Zone)) +
+  geom_hline(yintercept=1,
+             color = "black") +
+  geom_smooth(method = "loess",
+              formula = "y ~ x",
+              se=F) +
+  coord_cartesian(ylim=c(0,4.5)) +
+  theme_bw() +
+  scale_color_brewer(palette = "Set1") +
+  ylab(expression(t %*% hat(p)[t])) +
+  xlab("t (year)") +
+  scale_x_continuous(breaks = c(1, 21, 41, 61),
+                     labels = c("1 (1960)", "21 (1980)", "41 (2000)", " 61 (2020)"))
+show(g1c)
+# Save
+ggsave(filename = "trend_pt_tx_zone.pdf",
+       plot = g1c,
+       device = "pdf",
+       path = outdir,
+       width = 5,
+       height = 4)
+
+
+# Plot trends for geopotential variables
+bin_df <- read.csv(file.path(data_dir,"Stations_dfs/230.df.csv"))
+
+trend_g <- aggregate(. ~ t, data = bin_df, FUN = mean)
+
+# Plot
+colorcito <- brewer.pal(n = 4, name = "Set1")
+
+# g.300
+g.g300 <- ggplot(data = trend_g,
+                 mapping =  aes(x=t, y=)) +
+  geom_smooth(aes(y=g.300.45N.5E, color="45N.5E"), se = F) +
+  geom_smooth(aes(y=g.300.35N.5E, color="35N.5E"), se = F) +
+  geom_smooth(aes(y=g.300.45N.10W, color="45N.10W"), se = F) +
+  geom_smooth(aes(y=g.300.35N.10W, color="35N.10W"), se = F) +
+  labs(title = "Outter square yearly trend for g.300"
+       #subtitle = "Summer: MJJAS",
+       #caption = foot
+  ) +
+  ylab("g.300") +
+  xlab("t") +
+  scale_color_manual(name = "Coordinates",
+                     breaks=c("45N.5E",
+                              "35N.5E",
+                              "45N.10W",
+                              "35N.10W"),
+                     values=c("45N.5E"=colorcito[1],
+                              "35N.5E"=colorcito[2],
+                              "45N.10W"=colorcito[3],
+                              "35N.10W"=colorcito[4])) +
+  theme_bw() +
+  theme(
+    plot.title = element_text(size = 12 * 1.5, hjust = 0.5),
+    axis.title = element_text(size = 15),
+    axis.text = element_text(size = 12)
+  )
+
+show(g.g300)
+
+
+# g.500
+g.g500 <- ggplot(data = trend_g,
+                 mapping =  aes(x=t, y=)) +
+  geom_smooth(aes(y=g.500.45N.5E, color="45N.5E"), se = F) +
+  geom_smooth(aes(y=g.500.35N.5E, color="35N.5E"), se = F) +
+  geom_smooth(aes(y=g.500.45N.10W, color="45N.10W"), se = F) +
+  geom_smooth(aes(y=g.500.35N.10W, color="35N.10W"), se = F) +
+  labs(title = "Outter square yearly trend for g.500"
+       #subtitle = "Summer: MJJAS",
+       #caption = foot
+  ) +
+  ylab("g.500") +
+  xlab("t") +
+  scale_color_manual(name = "Coordinates",
+                     breaks=c("45N.5E",
+                              "35N.5E",
+                              "45N.10W",
+                              "35N.10W"),
+                     values=c("45N.5E"=colorcito[1],
+                              "35N.5E"=colorcito[2],
+                              "45N.10W"=colorcito[3],
+                              "35N.10W"=colorcito[4])) +
+  theme_bw()+
+  theme(
+    plot.title = element_text(size = 12 * 1.5, hjust = 0.5),
+    axis.title = element_text(size = 15),
+    axis.text = element_text(size = 12)
+  )
+
+show(g.g500)
+
+# g.700
+g.g700 <- ggplot(data = trend_g,
+                 mapping =  aes(x=t, y=)) +
+  geom_smooth(aes(y=g.700.45N.5E, color="45N.5E"), se = F) +
+  geom_smooth(aes(y=g.700.35N.5E, color="35N.5E"), se = F) +
+  geom_smooth(aes(y=g.700.45N.10W, color="45N.10W"), se = F) +
+  geom_smooth(aes(y=g.700.35N.10W, color="35N.10W"), se = F) +
+  labs(title = "Outter square yearly trend for g.700"
+       #subtitle = "Summer: MJJAS",
+       #caption = foot
+  ) +
+  ylab("g.700") +
+  xlab("t") +
+  scale_color_manual(name = "Coordinates",
+                     breaks=c("45N.5E",
+                              "35N.5E",
+                              "45N.10W",
+                              "35N.10W"),
+                     values=c("45N.5E"=colorcito[1],
+                              "35N.5E"=colorcito[2],
+                              "45N.10W"=colorcito[3],
+                              "35N.10W"=colorcito[4])) +
+  theme_bw()+
+  theme(
+    plot.title = element_text(size = 12 * 1.5, hjust = 0.5),
+    axis.title = element_text(size = 15),
+    axis.text = element_text(size = 12)
+  )
+
+show(g.g700)
+
+
+outdir <- "Results/Exploratory/Trends/"
+
+# Add map matching color zones
+if(!require(maps)) install.packages("maps"); library(maps)
+if(!require(RColorBrewer)) install.packages("RColorBrewer"); library(RColorBrewer)
+
+outfile <- file.path(outdir,"map_outter_square.png")
+png(filename = outfile)
+# Mapa with Iberic peninsula plus Balear islands
+map(regions=sov.expand(c("Spain", "Portugal")), xlim=c(-11,6), ylim = c(34,46))
+# Set zone colors for each station
+auxcol <- brewer.pal(4, "Set1")
+# Include the stations points
+points(x = c(5,5,-10,-10),
+       y = c(45,35,45,35),
+       col = "black",
+       bg = auxcol, 
+       pch = 21,
+       cex = 3)
+#abline(h=c(36:44), v=c(-10:10), lty=3)
+dev.off()
+
+# Save trends plots
+
+# Save
+ggsave(filename = "g.300_vs_t.png",
+       width = 7,
+       height = 5,
+       plot = g.g300,
+       device = "png",
+       path = outdir)
+
+ggsave(filename = "g.500_vs_t.png",
+       width = 7,
+       height = 5,
+       plot = g.g500,
+       device = "png",
+       path = outdir)
+
+ggsave(filename = "g.700_vs_t.png",
+       width = 7,
+       height = 5,
+       plot = g.g700,
+       device = "png",
+       path = outdir)
+```
