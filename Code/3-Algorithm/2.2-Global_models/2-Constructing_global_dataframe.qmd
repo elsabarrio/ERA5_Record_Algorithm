@@ -36,8 +36,8 @@ cpoints <- c("45N.10W","45N.5E","35N.10W","35N.5E")
 # Read the data for maximum temperatures
 tx.mat <- read.csv(file.path(data_dir,"tx.data","Tx_mat.csv"))
 tx.mat$Date <- as.Date(tx.mat$Date)
-idx.y <- which(as.numeric(format(tx.mat$Date,"%Y")) > 1980 &
-               as.numeric(format(tx.mat$Date,"%Y")) < 2011)
+idx.y <- which(as.numeric(format(tx.mat$Date,"%Y")) > 1981 &
+               as.numeric(format(tx.mat$Date,"%Y")) < 2010)
 idx.d <- which(as.numeric(format(tx.mat$Date,"%m")) >=6 &
                as.numeric(format(tx.mat$Date,"%m")) <= 8)
 stations$avg.Tx <- apply(X = tx.mat[intersect(idx.d,idx.y),-1],
