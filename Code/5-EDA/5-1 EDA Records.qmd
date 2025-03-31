@@ -184,67 +184,57 @@ g2a <- ggplot(data = trnd_df,
   geom_line(aes(y=G700_avg*t), color="red")
 show(g2a)
 
+# Reshape data.frame
+# Plot inputs
+avg_idx <- grep(pattern = "_avg", names(trnd_df))
+trend_df <- data.frame(p = c(as.matrix(trnd_df[,avg_idx])),
+                       Signal = rep(c("Tx","G300","G500","G700"), each = voldim[1]),
+                       t = rep(1:voldim[1], length(avg_idx)))
+# Figure
+colorcito <- c("blue","green","red","black")
+g2b <- ggplot(data = trend_df,
+              mapping =  aes(x=t, y=p*t, color = Signal)) +
+  geom_hline(yintercept=1,
+             color = "gray") +
+  geom_line() +
+  coord_cartesian(ylim=c(0,9)) +
+  theme_bw() +
+  scale_color_manual(values = colorcito) +
+  ylab(expression(t %*% hat(p)[t])) +
+  xlab("t (year)") +
+  scale_x_continuous(breaks = c(1, 21, 41, 61),
+                     labels = c("1 (1960)", "21 (1980)", "41 (2000)", " 61 (2020)"))
+show(g2b)
+
 # Save
 ggsave(filename = "trend_pt_Ix_G.pdf",
-       plot = g2a,
+       plot = g2b,
        device = "pdf",
        path = out_dir,
        width = 5,
        height = 4)
 
-# Apply loess
-# Tx
-trnd_df$Itx_lo <- lo.x(trnd_df$Itx_avg)
-trnd_df$Itx_lolo <- lo.x(trnd_df$Itx_avg-trnd_df$Itx_mar)
-trnd_df$Itx_loup <- lo.x(trnd_df$Itx_avg+trnd_df$Itx_mar)
-# G300
-trnd_df$G300_lo <- lo.x(trnd_df$G300_avg)
-trnd_df$G300_lolo <- lo.x(trnd_df$G300_avg-trnd_df$G300_mar)
-trnd_df$G300_loup <- lo.x(trnd_df$G300_avg+trnd_df$G300_mar)
-# G500
-trnd_df$G500_lo <- lo.x(trnd_df$G500_avg)
-trnd_df$G500_lolo <- lo.x(trnd_df$G500_avg-trnd_df$G500_mar)
-trnd_df$G500_loup <- lo.x(trnd_df$G500_avg+trnd_df$G500_mar)
-# G700
-trnd_df$G700_lo <- lo.x(trnd_df$G700_avg)
-trnd_df$G700_lolo <- lo.x(trnd_df$G700_avg-trnd_df$G700_mar)
-trnd_df$G700_loup <- lo.x(trnd_df$G700_avg+trnd_df$G700_mar)
-
-# Plot
-g2b <- ggplot(data = trnd_df,
-              mapping =  aes(x=t)) +
-  geom_hline(yintercept=1, color = "gray") +
-  #G300
-  geom_line(aes(y=G300_lo*t), color="blue") +
-  geom_ribbon(aes(ymin = G300_lolo*t, ymax = G300_loup*t),
-              fill = "blue",
-              alpha = 0.1) +
-  #G500
-  geom_line(aes(y=G500_lo*t), color="green") +
-  geom_ribbon(aes(ymin = G500_lolo*t, ymax = G500_loup*t),
-              fill = "green",
-              alpha = 0.1) +
-  #G700
-  geom_line(aes(y=G700_lo*t), color="red") +
-  geom_ribbon(aes(ymin = G700_lolo*t, ymax = G700_loup*t),
-              fill = "red",
-              alpha = 0.1) +
-  #Tx
-  geom_line(aes(y=Itx_lo*t), color="black") +
-  geom_ribbon(aes(ymin = Itx_lolo*t, ymax = Itx_loup*t),
-              fill = "black",
-              alpha = 0.1) +
-  ylim(c(0, NA)) +
-  ylab(expression(t%*%hat(p)[t])) +
+# Figure
+colorcito <- c("blue","green","red","black")
+g2c <- ggplot(data = trend_df,
+              mapping =  aes(x=t, y=p*t, color = Signal)) +
+  geom_hline(yintercept=1,
+             color = "gray") +
+  geom_smooth(method = "loess",
+              formula = "y ~ x",
+              se=F) +
+  coord_cartesian(ylim=c(0,5)) +
+  theme_bw() +
+  scale_color_manual(values = colorcito) +
+  ylab(expression(t %*% hat(p)[t])) +
   xlab("t (year)") +
   scale_x_continuous(breaks = c(1, 21, 41, 61),
-                     labels = c("1 (1960)", "21 (1980)", "41 (2000)", " 61 (2020)")) +
-  theme_bw()
-show(g2b)
+                     labels = c("1 (1960)", "21 (1980)", "41 (2000)", " 61 (2020)"))
+show(g2c)
 
 # Save
 ggsave(filename = "trend_pt_Ix_G_loess.pdf",
-       plot = g2b,
+       plot = g2c,
        device = "pdf",
        path = out_dir,
        width = 5,
@@ -496,36 +486,56 @@ g3c <- ggplot(data = trnd_df,
   geom_line(aes(y=G700), color="red")
 show(g3c)
 
+
+# Reshape data.frame
+# Plot inputs
+avg_idx <- grep(pattern = "^t", names(trnd_df), invert = T)
+trend_df <- data.frame(z = c(as.matrix(trnd_df[,avg_idx])),
+                       Signal = rep(c("Tx","G300","G500","G700"), each = nrow(trnd_df)),
+                       t = rep(1:nrow(trnd_df), length(avg_idx)))
+# Figure
+colorcito <- c("blue","green","red","black")
+g3d <- ggplot(data = trend_df,
+              mapping =  aes(x=t, y=z, color = Signal)) +
+  geom_hline(yintercept=0,
+             color = "gray") +
+  geom_line() +
+  theme_bw() +
+  scale_color_manual(values = colorcito) +
+  ylab("z") +
+  xlab("t (year)") +
+  scale_x_continuous(breaks = c(1, 21, 41, 61),
+                     labels = c("1 (1960)", "21 (1980)", "41 (2000)", " 61 (2020)"))
+show(g3d)
+
 # Save
 ggsave(filename = "trend_z_Ix_G.pdf",
-       plot = g3c,
+       plot = g3d,
        device = "pdf",
        path = out_dir,
        width = 5,
        height = 4)
 
-# Smoothed plot
-g3d <- ggplot(data = trnd_df,
-              mapping =  aes(x=t)) +
-  geom_hline(yintercept=0, color = "gray") +
-  #Tx
-  geom_smooth(aes(y=ztx), color="black", se = F) +
-  #G300
-  geom_smooth(aes(y=G300), color="blue", se = F) +
-  #G500
-  geom_smooth(aes(y=G500), color="green", se = F) +
-  #G700
-  geom_smooth(aes(y=G700), color="red", se = F) +
+# Figure
+colorcito <- c("blue","green","red","black")
+g3e <- ggplot(data = trend_df,
+              mapping =  aes(x=t, y=z, color = Signal)) +
+  geom_hline(yintercept=0,
+             color = "gray") +
+  geom_smooth(method = "loess",
+              formula = "y ~ x",
+              se=F) +
+  theme_bw() +
+  scale_color_manual(values = colorcito) +
   ylab("z") +
   xlab("t (year)") +
   scale_x_continuous(breaks = c(1, 21, 41, 61),
-                     labels = c("1 (1960)", "21 (1980)", "41 (2000)", " 61 (2020)")) +
-  theme_bw()
-show(g3d)
+                     labels = c("1 (1960)", "21 (1980)", "41 (2000)", " 61 (2020)"))
+show(g3e)
 
 # Save
-ggsave(filename = "trend_z_Ix_G_loess.pdf",
-       plot = g3d,
+ggsave(filename = "trend_pt_Ix_G_loess.pdf",
+       plot = g3e,
        device = "pdf",
        path = out_dir,
        width = 5,
