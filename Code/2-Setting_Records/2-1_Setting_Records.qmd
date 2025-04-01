@@ -15,7 +15,7 @@ Set the records from maximum temperature series based on the day within year rec
 rm(list = ls())
 
 # Read the data for maximum temperatures
-tx.mat <- read.csv("../../Data/tx.data/Tx_mat.csv", header = TRUE)
+tx.mat <- read.csv("../../Data/tx_data/Tx_mat.csv", header = TRUE)
 
 # Ensure the Date column is in Date format
 tx.mat$Date <- as.Date(tx.mat$Date)
@@ -75,7 +75,7 @@ record.df <- record.df[, c(ncol(record.df), 1:(ncol(record.df) - 1))]
 ```{r}
 # Now save this record  matrix in the Data folder
 # Create folder if it does not exist
-outdir <- "../../Data/record.data"
+outdir <- "../../Data/record_data"
 # Check if the folder exists
 if (!dir.exists(outdir)) {
   # Create the folder if it doesn't exist
@@ -83,10 +83,10 @@ if (!dir.exists(outdir)) {
 }
 
 # Check if the file already exists
-if (!file.exists(file.path(outdir,"record.matrix.csv"))) {
+if (!file.exists(file.path(outdir,"record_matrix.csv"))) {
   # Save the record matrix
   write.csv(x = record.df,
-            file = file.path(outdir,"record.matrix.csv"),
+            file = file.path(outdir,"record_matrix.csv"),
             row.names = FALSE)
 }
 
