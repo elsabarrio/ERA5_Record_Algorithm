@@ -5,7 +5,7 @@ format: html
 editor: visual
 ---
 
-The raw data used in this file was obtained running the previous Python file ''2-Convert_ERA5_nc_to_csv.ipynb''. This raw data will be deleted at the end of this file, and a refined version will be saved.
+The raw data used in this file was obtained running the previous Python file ''1-2_Convert_ERA5_nc_to_csv.ipynb''. This raw data will be deleted at the end of this file, and a refined version will be saved.
 
 ## Read .csv files with ERA-5 data
 
@@ -14,7 +14,7 @@ Read the .csv files containing data geopotential hight at pressure levels of 300
 ```{r message = FALSE, warning = FALSE}
 
 # Set data directory
-data_dir <- "../../../Data/Raw.csv"
+data_dir <- "../../../Data/Raw_csv"
 if(!dir.exists(data_dir)) stop("Raw data not found or already removed")
 
 # Read .csv files for geopotential hight at pressure levels of 300hPa, 500hPa, 700hPa, and 850hPa.
@@ -65,7 +65,7 @@ Now save the vectors created in .rds objects, and delete the folder with the raw
 ```{r message = FALSE, warning = FALSE}
 
 # Create folder to save the data if it does not exist
-outdir <- "../../../Data/geo.data/"
+outdir <- "../../../Data/geo_data/"
 if (!dir.exists(outdir)) {dir.create(outdir)}
 
 # Save latitude, longitude, and date data 
@@ -83,8 +83,8 @@ saveRDS(object = save_g_850, file = file.path(outdir,"g_850_12pm_60_23.rds"))
 
 ```{r message = FALSE, warning = FALSE}
 # Delete raw .csv and .nc data
-raw.csv <- "../../../Data/Raw.csv"
-raw.nc <- "../../../Data/Raw.nc"
+raw.csv <- "../../../Data/Raw_csv"
+raw.nc <- "../../../Data/Raw_nc"
 
 unlink(raw.csv, recursive = TRUE)
 unlink(raw.nc, recursive = TRUE)
