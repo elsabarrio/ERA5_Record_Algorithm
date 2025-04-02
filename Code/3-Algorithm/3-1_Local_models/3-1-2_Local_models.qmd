@@ -39,7 +39,7 @@ stations$point <- paste0(round(stations$LAT),"N.",
 cpoints <- c("45N.10W","45N.5E","35N.10W","35N.5E")
 
 # Read record indicators matrix
-itx.mat <- read.csv(file.path(data_dir,"record.data","record.matrix.csv"))
+itx.mat <- read.csv(file.path(data_dir,"record_data","record.matrix_csv"))
 itx.mat$Date <- as.Date(itx.mat$Date)
 
 # Read grid data
@@ -56,7 +56,7 @@ In the code cell below we create the four local models for each station and save
 ```{r}
 
 # Define output directory to save the models
-outdir <- "../../../Results/local.models"
+outdir <- "../../../Results/local_models"
 
 # Start loop to construct the local models
 if(!dir.exists(outdir)){
@@ -180,7 +180,7 @@ if(!dir.exists(outdir)){
 
     # Save AUC matrix
     write.csv(x = AUC.df,
-              file = file.path(dirname(outdir),"local.AUC.csv"),
+              file = file.path(dirname(outdir),"local_AUC.csv"),
               row.names = F)
     toc <- Sys.time()
     print(toc-tic)

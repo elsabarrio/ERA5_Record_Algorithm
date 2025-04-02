@@ -50,7 +50,7 @@ idx <- which(!is.na(stations$Zona))
 stations <- stations[idx,]
 
 # Set data directory
-models.dir <- "../../../Results/local.models"
+models.dir <- "../../../Results/local_models"
 if(!dir.exists(models.dir)) stop("models.dir not found")
 
 # Get the list of the file names of the models
@@ -97,7 +97,7 @@ fin.z.mat <- cbind(row.names(z.mat),fin.z.mat)
 names(fin.z.mat)[1] <- "STAID"
 
 # Save the data frame
-save.dir <- "../../../Results/local.z.values/"
+save.dir <- "../../../Results/local_zvalues/"
 if(!dir.exists(save.dir)) dir.create(save.dir, recursive = T)
 write.csv(x = fin.z.mat,
           file = file.path(save.dir, "zvalues_df.csv" ),

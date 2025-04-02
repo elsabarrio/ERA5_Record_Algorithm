@@ -42,7 +42,7 @@ if(!dir.exists(outdir)){
     
     # Create grid dataframe
     tic <- Sys.time()
-    get_grid_data(indir = file.path(data_dir, "geo.data"),
+    get_grid_data(indir = file.path(data_dir, "geo_data"),
                   infile = ifile, 
                   inlat = "lat.rds",
                   inlon = "lon.rds",
