@@ -1,5 +1,5 @@
 ---
-title: "1-M1_variable_selection"
+title: "3-2-1 M1_variable_selection"
 format: html
 editor: visual
 ---
@@ -14,7 +14,7 @@ We start by reading the z values table we obtained from the 36 simple models in 
 rm(list = ls())
 
 # Find the directory with the z values
-z_dir <- "../../../Results/local.z.values/"
+z_dir <- "../../../Results/local_zvalues/"
 if(!dir.exists(z_dir)) stop("z_dir not found")
 
 # Read the z values
@@ -97,7 +97,7 @@ We are left with 9 variables, to be included in the global models. We can now sa
 ```{r}
 
 # Define the folder path
-folder_path <- "../../../Results/final.models"
+folder_path <- "../../../Results/final_models"
 
 # Check if the folder exists, and create it if it does not
 if(!dir.exists(folder_path)) dir.create(folder_path)

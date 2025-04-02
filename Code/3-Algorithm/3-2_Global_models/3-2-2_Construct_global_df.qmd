@@ -1,5 +1,5 @@
 ---
-title: "2-Final_models"
+title: "3-2-2 Final_models"
 format: html
 editor: visual
 ---
@@ -34,7 +34,7 @@ cpoints <- c("45N.10W","45N.5E","35N.10W","35N.5E")
 
 # Read Tx matrix
 # Read the data for maximum temperatures
-tx.mat <- read.csv(file.path(data_dir,"tx.data","Tx_mat.csv"))
+tx.mat <- read.csv(file.path(data_dir,"tx_data","Tx_mat.csv"))
 tx.mat$Date <- as.Date(tx.mat$Date)
 idx.y <- which(as.numeric(format(tx.mat$Date,"%Y")) > 1981 &
                as.numeric(format(tx.mat$Date,"%Y")) < 2010)
@@ -48,7 +48,7 @@ stations$sd.Tx <- apply(X = tx.mat[intersect(idx.d,idx.y),-1],
                          FUN = function(x) sd(x, na.rm = T))/10
 
 # Read record indicators matrix
-itx.mat <- read.csv(file.path(data_dir,"record.data","record.matrix.csv"))
+itx.mat <- read.csv(file.path(data_dir,"record_data","record_matrix.csv"))
 itx.mat$Date <- as.Date(itx.mat$Date)
 
 # Reshape data
@@ -57,7 +57,7 @@ LL <- nrow(itx.mat)/TT
 SS <- nrow(stations)
 
 # Data directory
-outdir <- "../../../Results/final.models"
+outdir <- "../../../Results/final_models"
 if(!dir.exists(outdir)) dir.create(outdir, recursive = T)
 
 # Inint final data.frame
