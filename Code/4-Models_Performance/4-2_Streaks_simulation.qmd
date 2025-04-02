@@ -1,5 +1,5 @@
 ---
-title: "2-Streaks_simulation"
+title: "4-2 Streaks_simulation"
 format: html
 editor: visual
 ---
@@ -21,7 +21,7 @@ idx <- which(!is.na(stations$Zona))
 stations <- stations[idx,]
 
 # Read record data
-itx3d <- readRDS(file.path(data_dir, "record.data", "recordvol.rds"))
+itx3d <- readRDS(file.path(data_dir, "record_data", "recordvol.rds"))
 LL <- dim(itx3d)[2]
 TT <- dim(itx3d)[1]
 SS <- dim(itx3d)[3]
@@ -70,7 +70,7 @@ if(!file.exists(file.path(outdir,outname))){
 ```{r}
 
 # Get prediction directory
-pred_dir <- "../../Results/final.models/Predicts/"
+pred_dir <- "../../Results/final_models/Predicts/"
 if(!dir.exists(pred_dir)) stop("Predicts directory not found")
 
 # Read models predict for model M2
@@ -301,7 +301,7 @@ if(!file.exists(file.path(outdir,outname))){
   # Save results
   ggsave(filename = file.path(outdir,outname),
          plot = combined_plot,
-         device = 'pdf',
+         device = "pdf",
          width = 6,
          height = 4)
 }

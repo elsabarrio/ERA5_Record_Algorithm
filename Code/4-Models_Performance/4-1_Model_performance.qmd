@@ -1,5 +1,5 @@
 ---
-title: "3-Global_models"
+title: "4-1 Global_models_performance"
 format: html
 editor: visual
 ---
@@ -244,7 +244,7 @@ write.csv(x = all_df,
 # Gather all local and global AUCs
 # (except for m5 that is repetitive)
 # Local
-stations$m0 <- local.auc <- read.csv(file = file.path(dirname(outdir), "local.AUC.csv"))$AUC
+stations$m0 <- local.auc <- read.csv(file = file.path(dirname(outdir), "local_AUC.csv"))$AUC
 # Globals
 for(mm in 1:(length(mls)-1)){
   outname <- paste0("auc_staid_",mls[mm],".csv")
@@ -298,8 +298,6 @@ if(!file.exists(file.path(auc_dir,outname))) {
            height = 4)
 }
 ```
-
-
 
 ```{r}
 
