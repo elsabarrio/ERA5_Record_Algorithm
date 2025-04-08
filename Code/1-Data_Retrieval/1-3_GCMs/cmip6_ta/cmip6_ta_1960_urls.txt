@@ -1,0 +1,1 @@
+https://esgf-data1.llnl.gov/thredds/fileServer/css03_data/CMIP6/CMIP/EC-Earth-Consortium/EC-Earth3-AerChem/historical/r1i1p1f1/day/ta/gr/v20200624/ta_day_EC-Earth3-AerChem_historical_r1i1p1f1_gr_19600101-19601231.nc
