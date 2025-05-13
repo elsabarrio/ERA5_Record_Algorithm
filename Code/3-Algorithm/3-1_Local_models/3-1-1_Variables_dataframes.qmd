@@ -51,7 +51,7 @@ if(!dir.exists(outdir)){
                   outdir = file.path(data_dir, "grid_data"),
                   outfile = ofile)
     toc <- Sys.time()
-    print(toc-tic)
+    print(toc-tic) # Time difference of 1.859143 mins
 
   }# for aa level
 }# if outdir exist
