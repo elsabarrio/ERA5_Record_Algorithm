@@ -94,7 +94,7 @@ if (!file.exists(model_file)) {
                  k = 10.82757)
    toc <- Sys.time()
    cat("M1: ")
-   print(toc-tic)
+   print(toc-tic) # Time difference of 6.29911 mins
    
    # If any poly-2 term-2 is not significant remove it
    m1.frm <- as.character(m1$formula)

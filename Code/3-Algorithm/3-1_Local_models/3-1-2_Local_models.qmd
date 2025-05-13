@@ -39,7 +39,7 @@ stations$point <- paste0(round(stations$LAT),"N.",
 cpoints <- c("45N.10W","45N.5E","35N.10W","35N.5E")
 
 # Read record indicators matrix
-itx.mat <- read.csv(file.path(data_dir,"record_data","record.matrix_csv"))
+itx.mat <- read.csv(file.path(data_dir,"record_data","record_matrix.csv"))
 itx.mat$Date <- as.Date(itx.mat$Date)
 
 # Read grid data
@@ -183,7 +183,7 @@ if(!dir.exists(outdir)){
               file = file.path(dirname(outdir),"local_AUC.csv"),
               row.names = F)
     toc <- Sys.time()
-    print(toc-tic)
+    print(toc-tic)# 1.2087 mins
     
   }# for ss in stations
   
