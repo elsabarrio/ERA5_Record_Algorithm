@@ -32,7 +32,7 @@ idx <- which(!is.na(stations$Zona))
 stations <- stations[idx,]
 
 # Read Tx record data
-itx3d <- readRDS(file = file.path(data_dir, "record.data", "recordvol.rds"))
+itx3d <- readRDS(file = file.path(data_dir, "record_data", "recordvol.rds"))
 voldim <- dim(itx3d)
 
 # Data directory
@@ -244,7 +244,6 @@ ggsave(filename = "trend_pt_Ix_G_loess.pdf",
 
 ## Exploratory data analysis (EDA) for raw data
 
-
 ### Raw $T_x$
 
 EDA for the daily maximum temperature ($T_x$).
@@ -311,7 +310,6 @@ ggsave(filename = "trend_Tx.pdf",
 
 
 ```
-
 
 ### Standardized $T_x$
 
