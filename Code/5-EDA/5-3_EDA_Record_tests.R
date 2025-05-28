@@ -48,6 +48,7 @@ g300 <- read.csv(file.path(data_dir,"grid_data","g300_grid.csv"))
 g500 <- read.csv(file.path(data_dir,"grid_data","g500_grid.csv"))
 g700 <- read.csv(file.path(data_dir,"grid_data","g700_grid.csv"))
 
+set.seed(19430319) # M. Molina's DOB
 # For each station
 for(ss in 1:length(si_idx)){
   
@@ -107,10 +108,10 @@ for(ss in 1:length(si_idx)){
     #geom_vline(xintercept=cp_vec[3], color ="chartreuse3") +
     #geom_vline(xintercept=cp_vec[2], color ="blue") +
     #geom_vline(xintercept=cp_vec[1], color ="black") +
-    annotate("text", x=6, y=5, label = round(ntz_vec[4],2), col = "blue") +
-    annotate("text", x=6, y=4.6, label = round(ntz_vec[3],2), col = "chartreuse3") +
-    annotate("text", x=6, y=4.2, label = round(ntz_vec[2],2), col = "red") +
-    annotate("text", x=6, y=3.80, label = round(ntz_vec[1],2), col = "black") +
+    annotate("text", x=55, y=2.8, label = round(ntz_vec[4],2), col = "blue") +
+    annotate("text", x=55, y=2.4, label = round(ntz_vec[3],2), col = "chartreuse3") +
+    annotate("text", x=55, y=1.9, label = round(ntz_vec[2],2), col = "red") +
+    annotate("text", x=55, y=1.5, label = round(ntz_vec[1],2), col = "black") +
     scale_color_manual(name = "",
                        breaks=c("G300",
                                 "G500",
