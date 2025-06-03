@@ -104,6 +104,9 @@ outname <- paste0("sim_streakprobs_m2.rds")
 # If not found created, else read it
 if(!file.exists(file.path(outdir,outname))){
   
+  # Set seed
+  set.seed(18950521)
+  
   # Define input variables
   n_sim <- 10000
   
@@ -273,5 +276,4 @@ if(!file.exists(file.path(outdir,outname))){
 }
 
 # Get percentile for each observed value within the simulated values
-
 obs_probs[1,1]
