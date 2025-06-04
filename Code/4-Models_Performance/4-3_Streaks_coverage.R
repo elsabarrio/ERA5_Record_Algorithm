@@ -17,7 +17,6 @@ TT <- dim(itx3d)[1]
 SS <- dim(itx3d)[3]
 if(SS != nrow(stations)) stop("Number of stations differ!")
 
-
 ## Save record streaks
 # Set functions directory
 fdir <- "R"
@@ -276,4 +275,52 @@ if(!file.exists(file.path(outdir,outname))){
 }
 
 # Get percentile for each observed value within the simulated values
-obs_probs[1,1]
+sim_q <- array(data = as.numeric(NA),
+               dim = c(dim(obs_probs),4))
+# Third dimension: 1.Boots mean 2.Boots q0.025 3) Boots q0.975 4) Boots ecdf(obs)
+
+# Calculate Bootstrapped mean
+sim_q[,,1] <- apply(X = sim_probs, 
+                    MARGIN = 1:2,
+                    FUN = mean)
+
+# Calculate Bootstrapped q0.025
+sim_q[,,2] <- apply(X = sim_probs, 
+                    MARGIN = 1:2,
+                    FUN = function(x) quantile(x, 0.025))
+
+# Calculate Bootstrapped q0.975
+sim_q[,,3] <- apply(X = sim_probs, 
+                    MARGIN = 1:2,
+                    FUN = function(x) quantile(x, 0.975))
+
+# Forgive me laptop because I am going to sin with a double loop
+for(ss in 1:SS){
+  
+  cat(paste0("..",ss))
+  
+  for(pp in 1:ncol(obs_probs)){
+    
+    sim_q[ss,pp,4] <- ecdf(sim_probs[ss,pp,])(obs_probs[ss,pp])
+    
+  }# for pp in 5-props
+
+}# for ss in SS
+
+# Plot quantiles
+plot_df <- data.frame(q = 100*c(sim_q[,,4]),
+                      p = rep(c("1","2","3","4","5+"), each=SS))
+ggplot(data = plot_df, mapping = aes(x=p, y=q)) +
+  geom_hline(yintercept = 97.5,
+             linetype = "dashed",
+             color = "blue",
+             linewidth = 0.8) +
+  geom_hline(yintercept = 2.5,
+             linetype = "dashed",
+             color = "blue",
+             linewidth = 0.8) +
+  geom_boxplot(outliers = F) +
+  geom_jitter(color="black",
+              size=2,
+              width = 0.2) +
+  theme_minimal()
