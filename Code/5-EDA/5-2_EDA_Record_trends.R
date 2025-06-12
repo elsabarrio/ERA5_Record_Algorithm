@@ -29,6 +29,10 @@ voldim <- dim(itx3d)
 out_dir <- "Results/Exploratory/Trends"
 if(!dir.exists(out_dir)) dir.create(out_dir, recursive = T)
 
+###############################################################################
+# Trend
+###############################################################################
+
 # Response trends
 # Compute yearly trend
 trend_Ix <- apply(X = itx3d, MARGIN = 1, function(x) mean(x, na.rm = T))
@@ -107,6 +111,59 @@ show(g1c)
 # Save
 ggsave(filename = "trend_pt_Ix_zone.pdf",
        plot = g1c,
+       device = "pdf",
+       path = out_dir,
+       width = 5,
+       height = 4)
+
+###############################################################################
+# Persistence
+###############################################################################
+
+# Read Tx data
+tx <- read.csv(file = file.path(data_dir,"tx_data","Tx_mat.csv"))
+# Reshape data
+LL <- 365
+TT <- nrow(tx)/LL
+SS <- nrow(stations)
+tx3d <- array(data = as.matrix(tx[,-1]), dim = c(LL,TT,SS))
+if(sum(is.na(tx3d))>0) tx3d[is.na(tx3d)] <- -9999 # Remove NAs
+
+# Compute upper records (indicators) for summer data only
+upp.rcrd <- function(x) c(1,as.numeric(diff(cummax(x))>0))
+itx3d <- apply(X = tx3d, MARGIN = c(1,3), upp.rcrd)
+# Compute lagged records
+itx3d_lag1 <- lag3d(itx3d)
+# Extract only JJA
+summer_idx <- c(152:243)
+itx3d <- itx3d[,summer_idx,]
+itx3d_lag1 <- itx3d_lag1[,summer_idx,]
+voldim <- dim(itx3d)
+
+# Concurrence
+# Load 3d volume functions
+source("R/lag3d.R")
+source("R/or3d.R")
+
+# Persistence
+or_df <- or3d(itx3d,itx3d_lag1)
+
+# Plot
+g2a <- ggplot(data = or_df[-1,],
+              mapping =  aes(x=t, y=log(OR))) +
+  geom_line() +
+  stat_smooth(method = "lm",
+              formula = y~I(log(x-1)),
+              se = F) +
+  ylab(expression(LOR[t])) +
+  xlab("t (year)") +
+  scale_x_continuous(breaks = c(1, 21, 41, 61),
+                     labels = c("1 (1960)", "21 (1980)", "41 (2000)", " 61 (2020)")) +
+  theme_bw()
+show(g2a)
+# Save
+ggsave(filename = "trend_LOR.pdf",
+       plot = g2a,
        device = "pdf",
        path = out_dir,
        width = 5,
