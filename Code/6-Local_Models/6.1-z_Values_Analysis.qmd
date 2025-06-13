@@ -1,0 +1,111 @@
+---
+title: "6.1-z_Values_Analysis"
+format: html
+editor: visual
+---
+
+# z Values Table
+
+In this section, we will build a table using the z-values from the local models. The table will show the count of variables whose absolute z-values exceed specified thresholds across varying proportions of local models.
+
+We start by reading the data and removing the column which corresponds to the station ID.
+
+```{r}
+# Clear workspace
+rm(list = ls())
+
+# Load library
+if (!requireNamespace("readr", quietly = TRUE)) {
+  install.packages("readr")
+}
+library(readr)
+
+# Read z values from local models
+df <- read_csv("~/ERA5_Record_Algorithm/Results/local_zvalues/zvalues_df.csv", show_col_types = FALSE)
+  
+#Remove column with STAID
+df <- df[ , !(names(df) %in% "STAID")]
+```
+
+Combine the information from the original variables and the first order polynomial term.
+
+```{r}
+# Get all column names that have a first-order polynomial
+poly1_cols <- grep("^poly\\(.*?, 2\\)1$", names(df), value = TRUE)
+
+# Extract the original variable names from them
+originals <- gsub("^poly\\((.*?), 2\\)1$", "\\1", poly1_cols)
+
+# Loop over each and sum original + poly1 if both exist
+for (col in originals) {
+  poly1_col <- paste0("poly(", col, ", 2)1")
+  if (col %in% names(df)) {
+    df[[paste0("poly(", col, ", 2)1")]] <- rowSums(df[, c(col, poly1_col)], na.rm = TRUE)
+  }
+}
+
+# Now remove the original variables and the poly 1
+df.aux <- df[, !(names(df) %in% originals)]
+```
+
+Define a function that checks for any second-order polynomial terms missing their corresponding first-order terms and adds the missing ones; this will be needed later.
+
+```{r}
+# Function to add the "poly(..., 2)1" version if only "poly(..., 2)2" exists
+fix_poly_versions <- function(cols) {
+  # Find all names that end with "2" inside poly(..., 2)
+  poly2_names <- grep("poly\\(.+, 2\\)2", cols, value = TRUE)
+  
+  for (name2 in poly2_names) {
+    # Create the corresponding "1" version by replacing the trailing 2 with 1
+    name1 <- sub("2$", "1", name2)
+    
+    # If the "1" version is not present, add it to the vector
+    if (!(name1 %in% cols)) {
+      cols <- c(cols, name1)
+    }
+  }
+  return(cols)
+}
+```
+
+Now create the table to store the count of variables whose absolute z-values exceed specified thresholds across varying proportions of local models.
+
+```{r}
+# Assuming your dataframe is named df.aux
+z_values <- c(1.6, 2, 2.6, 3.2)
+proportions <- c(9, 12, 18)
+
+# Create a matrix to store the results
+result_matrix <- matrix(0, nrow = length(z_values), ncol = length(proportions),
+                        dimnames = list(paste0("z>=", z_values), paste0("n>=", proportions)))
+
+# Loop through each z_value
+for (i in seq_along(z_values)) {
+  z <- z_values[i]
+  # Count for each column how many rows have absolute values >= z
+  counts <- colSums(abs(df.aux) >= z, na.rm = TRUE)
+  
+  # Loop through each proportion threshold
+  for (j in seq_along(proportions)) {
+    p <- proportions[j]
+    
+    # Check variables
+    cols.aux <- colnames(df.aux)[counts >= p]
+    cols.fixed <- fix_poly_versions(cols.aux)
+    # Count how many columns have at least p rows meeting the condition
+    result_matrix[i, j] <- length(cols.fixed)
+  }
+}
+
+# Load library
+if (!requireNamespace("xtable", quietly = TRUE)) {
+  install.packages("xtable")
+}
+library(xtable)
+
+# Display the result matrix
+result_matrix
+#xtable(result_matrix)
+
+```
