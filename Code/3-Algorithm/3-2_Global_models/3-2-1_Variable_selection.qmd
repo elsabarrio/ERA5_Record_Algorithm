@@ -46,13 +46,24 @@ for (original_col in originals) {
   poly_col <- poly.2.1[grepl(paste0("\\(", original_col, ","), poly.2.1)]
   
   # Realizar la suma en valor absoluto
-  z.mat[[poly_col]] <-  rowSums(cbind(abs(z.mat[[original_col]]),
-                                      abs(z.mat[[poly_col]])),
+  z.mat[[poly_col]] <-  rowSums(cbind(z.mat[[original_col]],
+                                      z.mat[[poly_col]]),
                                 na.rm = TRUE)
+  
+  # Keep the NAs
+  if(any(z.mat[[poly_col]]==0)) z.mat[[poly_col]][which(z.mat[[poly_col]]==0)] <- NA
+  
 }
 
 # Remove original columns from data frame
 z.mat <- z.mat[, !colnames(z.mat) %in% originals]
+
+# Save the data frame
+save.dir <- "../../../Results/local_zvalues/"
+if(!dir.exists(save.dir)) dir.create(save.dir, recursive = T)
+write.csv(x = z.mat,
+          file = file.path(save.dir, "zvalues_1single_df.csv" ),
+          row.names = F)
 
 ```
 
