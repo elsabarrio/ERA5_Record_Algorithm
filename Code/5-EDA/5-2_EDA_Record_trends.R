@@ -133,6 +133,7 @@ if(sum(is.na(tx3d))>0) tx3d[is.na(tx3d)] <- -9999 # Remove NAs
 upp.rcrd <- function(x) c(1,as.numeric(diff(cummax(x))>0))
 itx3d <- apply(X = tx3d, MARGIN = c(1,3), upp.rcrd)
 # Compute lagged records
+source("R/lag3d.R")
 itx3d_lag1 <- lag3d(itx3d)
 # Extract only JJA
 summer_idx <- c(152:243)
@@ -142,9 +143,7 @@ voldim <- dim(itx3d)
 
 # Concurrence
 # Load 3d volume functions
-source("R/lag3d.R")
 source("R/or3d.R")
-
 # Persistence
 or_df <- or3d(itx3d,itx3d_lag1)
 
@@ -152,9 +151,7 @@ or_df <- or3d(itx3d,itx3d_lag1)
 g2a <- ggplot(data = or_df[-1,],
               mapping =  aes(x=t, y=log(OR))) +
   geom_line() +
-  stat_smooth(method = "lm",
-              formula = y~I(log(x-1)),
-              se = F) +
+  stat_smooth(se = F, color="black", linetype = "dashed") +
   ylab(expression(LOR[t])) +
   xlab("t (year)") +
   scale_x_continuous(breaks = c(1, 21, 41, 61),
