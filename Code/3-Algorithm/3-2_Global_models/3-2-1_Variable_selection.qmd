@@ -117,3 +117,18 @@ if(!dir.exists(folder_path)) dir.create(folder_path)
 saveRDS(final.var.aux,file = paste0(folder_path,"/final_variables.rds"))
 
 ```
+
+## Generate some summary results
+
+```{r}
+
+# Define the folder path
+folder_path <- "../../../Results/final_models"
+
+# Check if the folder exists, and create it if it does not
+if(!dir.exists(folder_path)) dir.create(folder_path)
+
+# Save the array to an RDS file
+saveRDS(final.var.aux,file = paste0(folder_path,"/final_variables.rds"))
+
+```

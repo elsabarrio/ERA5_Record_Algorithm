@@ -21,8 +21,8 @@ if (!requireNamespace("readr", quietly = TRUE)) {
 library(readr)
 
 # Read z values from local models
-df <- read_csv("~/ERA5_Record_Algorithm/Results/local_zvalues/zvalues_df.csv", show_col_types = FALSE)
-  
+df <- read_csv("../../Results/local_zvalues/zvalues_df.csv",
+               show_col_types = FALSE)
 #Remove column with STAID
 df <- df[ , !(names(df) %in% "STAID")]
 ```

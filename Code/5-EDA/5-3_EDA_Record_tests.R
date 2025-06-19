@@ -28,6 +28,11 @@ idx <- which(!is.na(stations$Zona))
 stations <- stations[idx,]
 # Set "corner" stations indices
 si_idx <- c(14,10,32,15) # Coruña, Fabra, Huelva, Murcia
+# Relabel
+stations$STANAME[si_idx[1]] <- "A CORUÑA"
+stations$STANAME[si_idx[2]] <- "BARCELONA-FABRA"
+stations$STANAME[si_idx[3]] <- "HUELVA"
+stations$STANAME[si_idx[4]] <- "MURCIA"
 show(stations$STANAME[si_idx])
 # Set corner grid points
 corners <- c("45N.10W","45N.5E","35N.10W","35N.5E")
@@ -110,10 +115,10 @@ for(ss in 1:length(si_idx)){
     #geom_vline(xintercept=cp_vec[3], color ="chartreuse3") +
     #geom_vline(xintercept=cp_vec[2], color ="blue") +
     #geom_vline(xintercept=cp_vec[1], color ="black") +
-    annotate("text", x=55, y=2.8, label = round(ntz_vec[4],2), col = "blue") +
-    annotate("text", x=55, y=2.4, label = round(ntz_vec[3],2), col = "chartreuse3") +
-    annotate("text", x=55, y=1.9, label = round(ntz_vec[2],2), col = "red") +
-    annotate("text", x=55, y=1.5, label = round(ntz_vec[1],2), col = "black") +
+    #annotate("text", x=55, y=2.8, label = round(ntz_vec[4],2), col = "blue") +
+    #annotate("text", x=55, y=2.4, label = round(ntz_vec[3],2), col = "chartreuse3") +
+    #annotate("text", x=55, y=1.9, label = round(ntz_vec[2],2), col = "red") +
+    #annotate("text", x=55, y=1.5, label = round(ntz_vec[1],2), col = "black") +
     scale_color_manual(name = "",
                        breaks=c("G300",
                                 "G500",
@@ -124,6 +129,10 @@ for(ss in 1:length(si_idx)){
                                 "G700"="red",
                                 "Tx"="black")) +
     ylab("Mean number of records") +
+    xlab("t (year)") +
+    ylim(0.9,6.1) +
+    scale_x_continuous(breaks = c(1, 21, 41, 61),
+                       labels = c("1 (1960)", "21 (1980)", "41 (2000)", " 61 (2020)")) +
     labs(subtitle = plot_subt) +
     theme_bw()
   show(g2)
