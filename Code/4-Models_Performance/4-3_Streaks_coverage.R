@@ -192,19 +192,30 @@ g.plot.true <- ggplot(true.df, aes(x = value, y = true.probs)) +
   scale_color_manual(name = "",values = c("True" = "black")) +
   theme_minimal() +
   theme(
-    legend.position = c(0.95, 0.95),
+    legend.position.inside = c(0.95, 0.95),
     legend.justification = c("right", "top"), 
     plot.title = element_text(hjust = 0.5)
   )
 
 show(g.plot.true)
 
+###############################################################################
+# Bootstrap for the 95%-percentile interval
+###############################################################################
+
 # Calculate the confidence intervals for the simulated probabilities
-sim.errors <- apply(sim_probs[,,-1], c(2,3), quantile,probs = c(0.025,0.975))
-sim.errors.avg <- apply(sim.errors, c(1,2), mean)
+sim.errors <- apply(X = sim_probs[,,-1],
+                    MARGIN =  c(2,3),
+                    FUN =  quantile,
+                    probs = c(0.025,0.975))
+sim.errors.avg <- apply(X = sim.errors,
+                        MARGIN =  c(1,2),
+                        FUN = mean)
 
 # Calculate the values for the simulated probabilities
-sim.probs.avg <- apply(sim_probs[,,-1], 2, mean)
+sim.probs.avg <- apply(X = sim_probs[,,-1],
+                       MARGIN = 2,
+                       FUN = mean)
 
 # Create a data frame and add the errors for the simulated streaks probabilities
 sim.errors.df <- data.frame(s.min = sim.errors.avg[1,],
@@ -222,7 +233,7 @@ g.plot.sim <- ggplot(sim.errors.df, aes(x = value, y = sim.prob)) +
   scale_color_manual(name = "",values = c("Simulated" = "blue")) +
   theme_minimal() +
   theme(
-    legend.position = c(0.95, 0.95),
+    legend.position.inside = c(0.95, 0.95),
     legend.justification = c("right", "top"), 
     plot.title = element_text(hjust = 0.5)
   )
@@ -274,6 +285,81 @@ if(!file.exists(file.path(outdir,outname))){
          height = 4)
 }
 
+###############################################################################
+# Bootstrap for the 95%-percentile interval for the mean
+###############################################################################
+
+# Now extract the bootstrap 95%-percentile interval for the mean
+# Calculate the confidence intervals for the simulated probabilities
+sim.avg <- apply(X = sim_probs[,,-1],
+                 MARGIN =  c(2,3),
+                 FUN =  mean)
+sim.avg.q <- apply(X = sim.avg,
+                   MARGIN =  1,
+                   FUN = quantile,
+                   probs = c(0.025,0.975))
+
+# Create a data frame and add the errors for the simulated streaks probabilities
+sim.errors.df <- data.frame(s.min = sim.avg.q[1,],
+                            s.max = sim.avg.q[2,],
+                            sim.prob = sim.probs.avg,
+                            value = 1:5)
+
+# Now create a plot to show the simulated probabilities with their error bars
+g.plot.sim <- ggplot(sim.errors.df, aes(x = value, y = sim.prob)) +
+  geom_point(aes(color = "Simulated") , shape = 21,fill = "blue", color = "blue",size = 2) +
+  geom_errorbar(aes(ymin = s.min, ymax = s.max, color = "Simulated"), width = 0) +
+  ggtitle("All stations") +
+  xlab("Duration") +
+  ylab("Probability density") +
+  scale_color_manual(name = "",values = c("Simulated" = "blue")) +
+  theme_minimal() +
+  theme(
+    legend.position.inside = c(0.95, 0.95),
+    legend.justification = c("right", "top"), 
+    plot.title = element_text(hjust = 0.5)
+  )
+show(g.plot.sim)
+
+## Create plot with real streaks and simulated ones
+# Now combine both plots into one
+# Define a small displacement value
+displacement <- 0.15
+
+combined_plot <- ggplot() +
+  # Simulated data (with displacement)
+  geom_point(data = sim.errors.df, aes(x = value + displacement, y = sim.prob, color = "Simulated"), shape = 21, fill = "blue", size = 2) +
+  geom_errorbar(data = sim.errors.df, aes(x = value + displacement, ymin = s.min, ymax = s.max, color = "Simulated"), width = 0) +
+  # True data (no displacement)
+  geom_point(data = true.df, aes(x = value, y = true.probs, color = "True"), shape = 4, size = 3, stroke = 1) +
+  geom_errorbar(data = true.df, aes(x = value, ymin = t.min, ymax = t.max, color = "True"), width = 0) +
+  # Titles and labels
+  ggtitle("Streaks probabilities M2 model") +
+  xlab("Duration") +
+  ylab("Probability density") +
+  # Custom colors for legend
+  scale_color_manual(name = "", values = c("Simulated" = "blue", "True" = "black")) +
+  # Themes and legend positioning
+  theme_minimal() +
+  theme(
+    # Adjust legend size and position
+    legend.position = c(0.60, 0.85),
+    legend.text = element_text(size = 15),
+    # Adjust axis text size
+    axis.text = element_text(size = 15),
+    # Adjust axis title size
+    axis.title = element_text(size = 15),
+    # Adjust plot title size
+    plot.title = element_text(size = 20, face = "bold", hjust = 0.5)
+  )
+
+# Print the combined plot
+show(combined_plot)
+
+###############################################################################
+# Coverage
+###############################################################################
+
 # Get percentile for each observed value within the simulated values
 sim_q <- array(data = as.numeric(NA),
                dim = c(dim(obs_probs),4))
@@ -294,7 +380,7 @@ sim_q[,,3] <- apply(X = sim_probs,
                     MARGIN = 1:2,
                     FUN = function(x) quantile(x, 0.975))
 
-# Forgive me laptop because I am going to sin with a double loop
+# Forgive me laptop, because I am going to sin with a double loop
 for(ss in 1:SS){
   
   cat(paste0("..",ss))
@@ -311,6 +397,10 @@ for(ss in 1:SS){
 plot_df <- data.frame(q = 100*c(sim_q[,,4]),
                       p = rep(c("1","2","3","4","5+"), each=SS))
 ggplot(data = plot_df, mapping = aes(x=p, y=q)) +
+  geom_boxplot(outliers = F) +
+  geom_jitter(color="black",
+              size=2,
+              width = 0.2) +
   geom_hline(yintercept = 97.5,
              linetype = "dashed",
              color = "blue",
@@ -319,8 +409,6 @@ ggplot(data = plot_df, mapping = aes(x=p, y=q)) +
              linetype = "dashed",
              color = "blue",
              linewidth = 0.8) +
-  geom_boxplot(outliers = F) +
-  geom_jitter(color="black",
-              size=2,
-              width = 0.2) +
   theme_minimal()
+
+
