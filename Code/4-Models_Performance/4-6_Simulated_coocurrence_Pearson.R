@@ -1,0 +1,133 @@
+# Clear workspace
+rm(list = ls())
+
+# Load libraries
+if(!is.element("geodist", row.names(installed.packages()))) install.packages("geodist")
+library(geodist)
+if(!is.element("ggplot2", row.names(installed.packages()))) install.packages("ggplot2")
+library(ggplot2)
+
+# Set data directory
+data_dir <- "Data"
+if(!dir.exists(data_dir)) stop("data_dir not found")
+
+# Read list of observatories of interest. Based on previous work.
+stations <- read.csv(file.path(data_dir,"geo_peninsula_zones.csv"))
+idx <- which(!is.na(stations$Zona))
+stations <- stations[idx,]
+
+# Read record data
+itx3d <- readRDS(file.path(data_dir, "record_data", "recordvol.rds"))
+LL <- dim(itx3d)[2]
+TT <- dim(itx3d)[1]
+SS <- dim(itx3d)[3]
+if(SS != nrow(stations)) stop("Number of stations differ!")
+
+# Compute geodesic distances
+geomat <- geodist(x = cbind(stations$LON,stations$LAT),
+                  measure = "geodesic")/1000
+
+# Set validation test 
+test_idx <- c(52:64)
+test_len <- length(test_idx)
+
+###############################################################################
+# Observed
+
+# Save observed cross-correlation across stations
+uptri <- which(upper.tri(x = geomat, diag = F),arr.ind = T)
+rdf <- data.frame(dist = geomat[uptri], r.obs = 0)
+for(ii in 1:nrow(rdf)) rdf$r.obs[ii] <- cor(c(itx3d[test_idx,,uptri[ii,1]]),c(itx3d[test_idx,,uptri[ii,2]]))
+
+# Plot it
+g1 <- ggplot(data = rdf,
+             mapping =  aes(x=dist, y=r.obs)) +
+  geom_point(alpha=0.5,shape = 16) +
+  geom_smooth(se = T) +
+  theme_bw() +
+  ylab('Pearson\'s r') +
+  xlab("Geodesic distance (km)")
+show(g1)
+
+###############################################################################
+# M2 predictions cross-correlations
+
+# Get prediction directory
+pred_dir <- "Results/final_models/Predicts/"
+if(!dir.exists(pred_dir)) stop("Predicts directory not found")
+
+# Read models predict for model M2
+pred_df <- read.csv(file.path(pred_dir,"preds_m2.csv"))
+# Reshape into 3d volume
+pred3d <- array(pred_df$preds[order(pred_df$STAID,pred_df$l,pred_df$t)],
+                dim = c(test_len,LL,SS))
+
+# Calculate correlation over predictions
+rdf$r.m2 <- 0
+for(ii in 1:nrow(rdf)) rdf$r.m2[ii] <- cor(c(pred3d[,,uptri[ii,1]]),c(pred3d[,,uptri[ii,2]]))
+
+# Plot it
+g2 <- ggplot(data = rdf,
+             mapping =  aes(x=dist)) +
+  geom_smooth(mapping = aes(y=r.obs), se = T) +
+  geom_smooth(mapping = aes(y=r.m2), col = "green", se = T) +
+  theme_bw() +
+  labs(title = "Pearson\'s r",
+       subtitle = "2011-2023") +
+  ylab('Pearson\'s index') +
+  xlab("Geodesic distance (km)")
+show(g2)
+
+###############################################################################
+# M2-simulated predictions cross-correlations
+
+# Let's simulate
+nperm <- 1000
+r_m2_mat <- matrix(0, nrow = nrow(rdf), ncol = nperm)
+for(pp in 1:nperm){
+  if(pp %% 100 == 0) cat(paste0("..",pp))
+  aux <- as.numeric(runif(nrow(pred_df)) <= pred_df$preds)
+  binmat <- array(data = aux[order(pred_df$STAID,pred_df$l,pred_df$t)],
+                  dim = c(test_len,LL,SS))
+  for(ii in 1:nrow(rdf)) r_m2_mat[ii,pp] <- cor(c(binmat[,,uptri[ii,1]]),c(binmat[,,uptri[ii,2]]))
+}# pp permutation
+
+# Calculate correlation over predictions
+rdf$r.sim <- apply(r_m2_mat, 1, mean)
+
+# Plot it
+g3 <- ggplot(data = rdf,
+             mapping =  aes(x=dist)) +
+  geom_smooth(mapping = aes(y=r.obs), se = T) +
+  geom_smooth(mapping = aes(y=r.m2), col = "green", se = T) +
+  geom_smooth(mapping = aes(y=r.sim), col = "orange", se = T) +
+  theme_bw() +
+  labs(title = "Pearson\'s r",
+       subtitle = "2011-2023") +
+  ylab('Pearson\'s index') +
+  xlab("Geodesic distance (km)")
+show(g3)
+
+###############################################################################
+# Observed vs simulated model predictions
+
+# Crear el scatterplot con ggplot2
+cor(rdf$r.obs,rdf$r.sim)
+cor(rdf$r.obs,rdf$r.m2)
+g4 <- ggplot(rdf, aes(x=r.obs, y=r.sim)) +
+  geom_point() +
+  geom_smooth(method="lm", col="red") +
+  labs(title = "Pearson's r",
+       subtitle = "Validation: 2011-2023",
+       x="Observed",
+       y="M2-Simulated") +
+  
+  theme_bw()
+show(g4)
+
+# Save it
+outdir <- "Results/coocurrence"
+if(!dir.exists(outdir)) dir.create(outdir)
+ggsave(filename = "cor_simM2.pdf", plot = g4,
+       device = "pdf", path = outdir, 
+       width = 4, height = 3)
