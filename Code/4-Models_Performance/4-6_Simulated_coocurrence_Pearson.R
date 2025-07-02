@@ -82,7 +82,8 @@ show(g2)
 # M2-simulated predictions cross-correlations
 
 # Let's simulate
-nperm <- 1000
+set.seed(19120623)
+nperm <- 10000
 r_m2_mat <- matrix(0, nrow = nrow(rdf), ncol = nperm)
 for(pp in 1:nperm){
   if(pp %% 100 == 0) cat(paste0("..",pp))

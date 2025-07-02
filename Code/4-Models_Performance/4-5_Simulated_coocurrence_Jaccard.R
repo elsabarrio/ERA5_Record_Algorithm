@@ -62,7 +62,7 @@ show(g1)
 # Simulated under iid stationarity
 
 # Calculate random JI under iid-stationarity
-nperm <- 1000
+nperm <- 10000
 ji_rdm_mat <- matrix(0, nrow = nrow(ji_obs_df), ncol = nperm)
 # Let's do it
 set.seed(19120623)
@@ -111,7 +111,6 @@ for(pp in 1:nperm){
                   dim = c(test_len,LL,SS))
   for(ii in 1:nrow(ji_obs_df)) ji_m2_mat[ii,pp] <- jidx(c(binmat[,,uptri[ii,1]]),c(binmat[,,uptri[ii,2]]))
 }# pp permutation
-
 
 # Add average to plotting data.frame
 ji_obs_df$JIsim <- apply(ji_m2_mat,1,mean)
