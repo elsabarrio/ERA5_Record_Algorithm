@@ -1,6 +1,10 @@
 # Clear workspace
 rm(list = ls())
 
+# Load libraries
+if(!is.element("ggplot2", row.names(installed.packages()))) install.packages("ggplot2")
+library(ggplot2)
+
 # Set data directory
 data_dir <- "Data"
 if(!dir.exists(data_dir)) stop("data_dir not found")
@@ -237,4 +241,4 @@ ggsave(filename = "trend_pt_Ix_G_loess.pdf",
        device = "pdf",
        path = out_dir,
        width = 5,
-       height = 4)
+       height = 2)
