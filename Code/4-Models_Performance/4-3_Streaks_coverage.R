@@ -249,14 +249,18 @@ combined_plot <- ggplot() +
   geom_point(data = sim.errors.df, aes(x = value + displacement, y = sim.prob, color = "Simulated"), shape = 21, fill = "blue", size = 2) +
   geom_errorbar(data = sim.errors.df, aes(x = value + displacement, ymin = s.min, ymax = s.max, color = "Simulated"), width = 0) +
   # True data (no displacement)
-  geom_point(data = true.df, aes(x = value, y = true.probs, color = "True"), shape = 4, size = 3, stroke = 1) +
-  geom_errorbar(data = true.df, aes(x = value, ymin = t.min, ymax = t.max, color = "True"), width = 0) +
+  geom_point(data = true.df, aes(x = value, y = true.probs, color = "Observed"), shape = 4, size = 3, stroke = 1) +
+  geom_errorbar(data = true.df, aes(x = value, ymin = t.min, ymax = t.max, color = "Observed"), width = 0) +
   # Titles and labels
-  ggtitle("Streaks probabilities M2 model") +
-  xlab("Duration") +
-  ylab("Probability density") +
+  #ggtitle("Streaks probabilities M2 model") +
+  xlab("Runs length") +
+  ylab("Relative frequency") +
   # Custom colors for legend
-  scale_color_manual(name = "", values = c("Simulated" = "blue", "True" = "black")) +
+  scale_color_manual(name = "", values = c("Simulated" = "blue", "Observed" = "black")) +
+  scale_x_continuous(
+    breaks = 1:5,  # Where to place the labels
+    labels = c("1", "2", "3", "4", "5+")  # What labels to show
+  ) +
   # Themes and legend positioning
   theme_minimal() +
   theme(
