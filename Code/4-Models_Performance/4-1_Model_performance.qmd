@@ -125,7 +125,31 @@ m5.frm <- readRDS(model_file)
 m5 <- glm(formula = m5.frm,
           data = global.df[idx.train,],
           family = binomial(link = "logit"))
+
+# M5: Triple interaction model
+# Define file path
+model_file <- file.path(outdir, "m5.M3lower.rds")
+# Check if file exists
+if(!file.exists(model_file)) stop("Model M5 not found!")
+# File exists; read the formula
+m5.M3lower.frm <- readRDS(model_file)
+# Compute the model
+m5.M3lower <- glm(formula = m5.M3lower.frm,
+          data = global.df[idx.train,],
+          family = binomial(link = "logit"))
    
+# M5: Triple interaction model
+# Define file path
+model_file <- file.path(outdir, "m5.M4lower.rds")
+# Check if file exists
+if(!file.exists(model_file)) stop("Model M5 not found!")
+# File exists; read the formula
+m5.M4lower.frm <- readRDS(model_file)
+# Compute the model
+m5.M4lower <- glm(formula = m5.M4lower.frm,
+          data = global.df[idx.train,],
+          family = binomial(link = "logit"))
+
 # Models list
 mls <- gsub("[.]frm", "", ls()[grep("[.]frm",ls())])
 
@@ -155,6 +179,7 @@ stations$abb <- substr(stations$STANAME,1,6)
 # Global data.frame to store model performance
 all_df <- data.frame(Model = mls,
                      k = vector("numeric", length(mls)),
+                     n_var = vector("numeric", length(mls)), 
                      AUC = vector("numeric", length(mls)),
                      AUC.coast = vector("numeric", length(mls)),
                      AUC.inner = vector("numeric", length(mls)),
@@ -175,6 +200,9 @@ for(mm in 1:length(mls)){
   
   # Get number of parameters
   all_df$k[mm] <- staid_df$k <- length(coef(get(mls[mm])))
+  
+  # Get number of variables
+  all_df$n_var[mm] <- length(attr(terms(get(mls[mm])), "variables"))-1
   
   # Get global AUC
   predict.aux <- predict(object = get(mls[mm]),
@@ -263,14 +291,15 @@ library(RColorBrewer)
 colorcito <- brewer.pal(n = 8, name = "Set1")
 
 # Order from closest to the coast to furthest
-stations <- stations[order(stations$CoastDist),]
+#stations <- stations[order(stations$CoastDist),]
+stations <- stations[order(stations$m0),]
 
 # Create plot with M0, M1 and M2 models
 g1 <- ggplot(data = stations, aes(x = 1:nrow(stations))) +
   geom_point(aes(y = m0, color = "M0"), na.rm = TRUE, shape = 15, size = 3) +
   geom_point(aes(y = m1, color = "M1"), na.rm = TRUE, shape = 16, size = 3) +
   geom_point(aes(y = m2, color = "M2"), na.rm = TRUE, shape = 17, size = 3) +
-  geom_point(aes(y = m3, color = "M3"), na.rm = TRUE, shape = 18, size = 3) +
+  #geom_point(aes(y = m3, color = "M3"), na.rm = TRUE, shape = 18, size = 3) +
   labs(title = "Comparison of AUCs of final models",
        y = "AUC",
        x = "Station") +
@@ -282,19 +311,19 @@ g1 <- ggplot(data = stations, aes(x = 1:nrow(stations))) +
                                 "M3" = colorcito[4])) +
   scale_x_discrete(labels = stations$abb, limits = factor(1:nrow(stations))) + 
   theme_bw() +
-  theme(axis.text.x = element_text(angle = 55, hjust = 1,  face = "bold")) +
-  geom_vline(xintercept = 16.5, linetype = "dashed", color = "black", linewidth = 0.5)
+  theme(axis.text.x = element_text(angle = 55, hjust = 1,  face = "bold")) 
+  #geom_vline(xintercept = 16.5, linetype = "dashed", color = "black", linewidth = 0.5)
 
 # Show plot
 show(g1)
 
 # Save plot
-outname <- paste0("plot_auc_m0m1m2m3.pdf")
+outname <- paste0("plot_auc_m0m1m2_ordered.pdf")
 if(!file.exists(file.path(auc_dir,outname))) {
     ggsave(filename = file.path(auc_dir,outname),
            plot = g1,
            device = "pdf",
-           width = 6,
+           width = 8,
            height = 4)
 }
 ```
@@ -330,4 +359,45 @@ if(!file.exists(file.path(auc_dir,outname))) {
            width = 6,
            height = 4)
 }
+```
+
+## AUC summary table
+
+```{r}
+# Read AUC data frame with all models
+auc.global <- read.csv(file.path(outdir,'AUC','auc_global.csv'))
+
+auc.global$min.coast <- NA
+auc.global$mean.coast <- NA
+auc.global$Q10.coast <- NA
+auc.global$Q25.coast <- NA
+auc.global$median.coast <- NA
+auc.global$mean.diff.coast <- NA
+auc.global$median.diff.coast <- NA
+auc.global$Q10.diff.coast <- NA
+
+# Read AUC per model for each stations
+for (i in seq_along(mls)){
+  
+  # Select model
+  mm <- mls[i]
+  
+  df <- read.csv(file.path(outdir, "AUC", paste0("auc_staid_", mm, ".csv")))
+  coastal_df <- df[df$CoastDist <= 50, ]
+  
+  local.auc.coast <- local.auc[df$CoastDist <= 50]
+  diff <- coastal_df$AUC - local.auc.coast
+
+  # Add measures to auc.global dataframe
+  auc.global$min.coast[i] <- min(coastal_df$AUC)
+  auc.global$median.coast[i] <- median(coastal_df$AUC)
+  auc.global$Q10.coast[i] <- quantile(coastal_df$AUC, 0.10)
+  auc.global$Q25.coast[i] <- quantile(coastal_df$AUC, 0.25)
+  auc.global$mean.coast[i] <- mean(coastal_df$AUC)
+
+  auc.global$mean.diff.coast[i] <- abs(mean(diff))
+  auc.global$median.diff.coast[i] <- abs(median(diff))
+  auc.global$Q10.diff.coast[i] <- abs(quantile(diff, 0.10))
+}
+
 ```

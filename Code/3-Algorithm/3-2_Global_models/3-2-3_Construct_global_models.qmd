@@ -309,4 +309,87 @@ if(!file.exists(model_file)) {
 
 }
 
+# M5 aux with M3 as lower scope
+# Define file path
+model_file <- file.path(outdir, "m5.M3lower.rds")
+
+# Check if file exists
+if(!file.exists(model_file)) {
+  
+  frm3 <- readRDS('C:/Users/elsac/Documents/ERA5_Record_Algorithm/Results/final_models/m3.rds')
+  
+  m3 <- glm(formula = frm3,
+           data = global.df[idx.train,],
+           family = binomial(link = "logit"))
+  
+  # File does not exist; run the code to compute and save the model
+  fin.var.m1 <- readRDS(file.path(outdir,"final_variables_m1.rds"))
+  # Get formula
+  frm.5 <- as.formula(paste0("Ix~ (",capture.output(cat(fin.var.m1, sep = "+")),") * (LAT + LON) * (avg.Tx + sd.Tx) * (Altitude + log(CoastDist)) "))
+  
+  # Define model before step
+  full.m5 <- glm(formula = frm.5,
+                 data = global.df[idx.train,],
+                 family = binomial(link = "logit"))
+
+  
+  # Run step
+  tic <- Sys.time()
+  m5 <- stepAIC(object = m3,
+                direction = "both",
+                scope = list(lower = m3, upper = full.m5),
+                k = 10.82757)
+  toc <- Sys.time()
+  cat("M5: ")
+  print(toc-tic)
+  # Time difference of 1.099813 hours
+  
+  # Save model 
+  m5.frm <- m5$formula
+  saveRDS(m5$formula, file = model_file)
+
+}
+
+# M5 aux with M4 as lower scope
+# Define file path
+model_file <- file.path(outdir, "m5.M4lower.rds")
+
+# Check if file exists
+if(!file.exists(model_file)) {
+  
+  frm4 <- readRDS('C:/Users/elsac/Documents/ERA5_Record_Algorithm/Results/final_models/m4.rds')
+  
+  m4 <- glm(formula = frm4,
+           data = global.df[idx.train,],
+           family = binomial(link = "logit"))
+  
+  # File does not exist; run the code to compute and save the model
+  fin.var.m1 <- readRDS(file.path(outdir,"final_variables_m1.rds"))
+  # Get formula
+  frm.5 <- as.formula(paste0("Ix~ (",capture.output(cat(fin.var.m1, sep = "+")),") * (LAT + LON) * (avg.Tx + sd.Tx) * (Altitude + log(CoastDist)) "))
+  
+  # Define model before step
+  full.m5 <- glm(formula = frm.5,
+                 data = global.df[idx.train,],
+                 family = binomial(link = "logit"))
+
+  
+  # Run step
+  tic <- Sys.time()
+  m5 <- stepAIC(object = m4,
+                direction = "both",
+                scope = list(lower = m4, upper = full.m5),
+                k = 10.82757)
+  toc <- Sys.time()
+  cat("M5: ")
+  print(toc-tic)
+  # Time difference of 1.099813 hours
+  
+  # Save model 
+  m5.frm <- m5$formula
+  saveRDS(m5$formula, file = model_file)
+
+}
 ```
+
+# 

@@ -1,0 +1,183 @@
+---
+title: "6.2-z_Values_Boxplots"
+format: html
+editor: visual
+---
+
+# Boxplots
+
+```{r}
+# Clear workspace
+rm(list = ls())
+
+# Load library
+if (!requireNamespace("readr", quietly = TRUE)) {
+  install.packages("readr")
+}
+library(readr)
+
+# Read z values from local models
+df <- read_csv("~/ERA5_Record_Algorithm/Results/local_zvalues/zvalues_df.csv", show_col_types = FALSE)
+  
+#Remove column with STAID
+df <- df[ , !(names(df) %in% "STAID")]
+```
+
+```{r}
+# Get all column names that have a first-order polynomial
+poly1_cols <- grep("^poly\\(.*?, 2\\)1$", names(df), value = TRUE)
+
+# Extract the original variable names from them
+originals <- gsub("^poly\\((.*?), 2\\)1$", "\\1", poly1_cols)
+
+# Loop over each and sum original + poly1 if both exist
+for (col in originals) {
+  poly1_col <- paste0("poly(", col, ", 2)1")
+  if (col %in% names(df)) {
+    df[[col]] <- rowSums(df[, c(col, poly1_col)], na.rm = TRUE)
+    df[[col]][df[[col]] == 0] <- NA 
+  }
+}
+
+# Now remove the original variables and the poly 1
+df.aux <- df[, !(names(df) %in% poly1_cols)]
+
+# Define lag terms
+lags <- paste0(originals, '.lag1')
+
+# Define poly 2 terms
+poly2 <- grep("^poly\\(.*?, 2\\)2$", names(df), value = TRUE)
+
+```
+
+```{r}
+
+# Load/install necessary libraries
+if (!requireNamespace("ggplot2", quietly = TRUE)) {
+  install.packages("ggplot2")
+}
+library(ggplot2)
+
+if (!requireNamespace("dplyr", quietly = TRUE)) {
+  install.packages("dplyr")
+}
+library(dplyr)
+
+if (!requireNamespace("tidyr", quietly = TRUE)) {
+  install.packages("tidyr")
+}
+library(tidyr)
+
+types <- c('originals', 'lags', 'poly2')
+plot.titles <- c('Lineal', 'Lag', 'Quadratic')
+
+# Save stats
+all_stats <- list()
+
+for (i in 1:length(types)){
+  # Select variable set
+  vars <- types[i]
+  plot.title <- plot.titles[i]
+  
+  # Data frame for labels and colors
+  group_info <- data.frame(
+    variable = factor(originals, levels = originals),
+    level = rep(c("g300", "g500", "g700"), times = 5),
+    group_label = rep(c("Local", "45N,10W", "35N,10W", "45N,5E", "35N,5E"), each = 3)
+  )
+  
+  # Convert to long format
+  df_lag <- df.aux %>%
+    pivot_longer(cols = all_of(get(vars)), names_to = "variable", values_to = "value") %>%
+    mutate(variable = factor(variable, levels = get(vars), labels = originals)) %>%
+    left_join(group_info, by = "variable")
+  
+  # Counts of data points in each boxplot
+  #counts <- df_lag %>%
+    #group_by(variable) %>%
+    #summarise(n = sum(!is.na(value)))
+  
+  stats_df <- df_lag %>%
+  group_by(variable) %>%
+  summarise(
+    n = sum(!is.na(value)),
+    n_above = sum(abs(value) >= 2, na.rm = TRUE),
+    .groups = "drop"
+  )
+  
+  all_stats[[vars]] <- stats_df
+  
+  color_map <- c("g300" = "blue", "g500" = "green", "g700" = "red")
+  
+  # X positions for centre of each group
+  group_centers <- c(2, 5, 8, 11, 14)
+  
+  # X positions for delimiter lines (between groups of 3)
+  group_lines <- c(3.5, 6.5, 9.5, 12.5)
+  
+  # Adjust lower limit for labels and lines
+  y_min <- min(df_lag$value, na.rm = TRUE)
+  y_offset <- 1  # Spacing for labels
+  
+  # Data frame for delimiter lines
+  lines_df <- data.frame(
+    x = group_lines,
+    xend = group_lines,
+    y = y_min - y_offset*1.5,
+    yend = y_min - 0.3
+  )
+  
+  assign(paste0('g.',i), ggplot(df_lag, aes(x = variable, y = value, fill = level)) +
+    geom_boxplot(outlier.shape = NA, alpha = 0.7) +
+    geom_jitter(width = 0.2, alpha = 1, color = "black", fill = 'black',size = 1.5) +
+      geom_hline(yintercept = c(-2,2), colour = 'black', linetype = 'dashed', linewidth = 0.5) +
+    #geom_text(data = counts, aes(x = variable, y = 10, label = paste0("n=", n)), 
+               #inherit.aes = FALSE, size = 4.5) + # y = max(df_lag$value, na.rm = TRUE)
+    scale_fill_manual(values = color_map) +
+    labs(x = "", y = "z scores", title = plot.title) +
+    theme_minimal() +
+    theme(
+      legend.position = "none",
+      axis.text.x = element_blank(),
+      axis.ticks.x = element_blank(),
+      axis.text.y = element_text(size = 14),
+      axis.title.x = element_text(size = 16),
+      axis.title.y = element_text(size = 16),
+      plot.title = element_text(size = 18, face = "bold")
+    ) +
+      coord_cartesian(clip = "off", ylim = c(-10, 10)) +
+    #coord_cartesian(clip = "off", ylim = c(y_min - y_offset*1.5, max(df_lag$value, na.rm = TRUE) + 1)) +
+    # Líneas delimitadoras con data frame separado
+    geom_segment(data = lines_df, aes(x = x, xend = xend, y = -11, yend = -9),
+                 inherit.aes = FALSE, color = "gray50", linetype = "dashed") +
+    # Etiquetas agrupadas
+    annotate("text", x = group_centers, y = -10, 
+             label = c("Local", "45N,10W", "35N,10W", "45N,5E", "35N,5E"), size = 5)) # y = y_min - y_offset
+  
+  ggsave(plot = get(paste0('g.',i)), path = file.path('C:/Users/elsac/Documents/ERA5_Record_Algorithm/Results/local_zvalues/Boxplots/'), filename = paste0(vars,'.pdf'), width = 8, height = 5)
+}
+
+final_stats <- bind_rows(all_stats, .id = "type")
+
+final_stats <- final_stats %>%
+  mutate(type = recode(type,
+                       "originals" = "Linear",
+                       "lags"      = "1-Lag",
+                       "poly2"     = "Quadratic"))
+
+final_stats_wide <- final_stats %>%
+  pivot_wider(
+    names_from = type,
+    values_from = c(n, n_above),
+    names_glue = "{type}.{.value}"
+  )
+
+final_stats_wide <- final_stats_wide %>%
+  mutate(
+    level = as.numeric(gsub("g([0-9]+).*", "\\1", variable))
+  ) %>%
+  arrange(level, variable) %>%
+  select(-level)
+
+print.df <- final_stats_wide[,c(1,2,5,3,6,4,7)]
+```

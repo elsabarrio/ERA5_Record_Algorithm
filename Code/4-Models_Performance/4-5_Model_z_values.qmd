@@ -1,0 +1,153 @@
+---
+title: "Untitled"
+format: html
+editor: visual
+---
+
+## Prepare data frame to run m1 model
+
+```{r}
+# Clear workspace
+rm(list = ls())
+
+# Set data directory
+data_dir <- "C:/Users/elsac/Documents/ERA5_Record_Algorithm/Data"
+if(!dir.exists(data_dir)) stop("data_dir not found")
+
+# Load data.frame
+global.df <- readRDS(file.path(data_dir,"global_data","global_df.rds"))
+
+# Load feature selected variables based on z-values
+outdir <- "C:/Users/elsac/Documents/ERA5_Record_Algorithm/Results/final_models"
+if(!dir.exists(outdir)) stop("outdir not found")
+fin.var <- readRDS(file.path(outdir,"final_variables.rds"))
+
+# Detect lag1 variables
+lag1idx <- grep(".lag1", fin.var)
+if(length(lag1idx)>0){
+  
+  # Load libraries
+  if(!is.element("dplyr", row.names(installed.packages()))) install.packages("dplyr")
+  library(dplyr)
+  
+  # Calculate lag1 variables
+  for(ii in 1:length(lag1idx)){
+    # Find variable
+    varname <- unlist(strsplit(x = fin.var[lag1idx[ii]], split = ".lag1"))
+    # Create lag1
+    if(!is.element(varname, names(global.df))) stop("Lag1 variable not found in global data.frame")
+    global.df[[fin.var[lag1idx[ii]]]] <- dplyr::lag(global.df[[varname]], 1, 0)
+    
+  }# for ii lag1 found
+}# if any lag1 found
+
+# Detect poly-2 variables
+poly2idx <- grep("poly", fin.var)
+fin.single <- fin.var
+if(length(poly2idx)>0){
+  for(ii in 1:length(poly2idx)){
+    fin.single[poly2idx[ii]] <- gsub(", 2[)]","",gsub("poly[(]","",fin.single[poly2idx[ii]]))
+  } 
+}
+
+# Check if all final local variables are included in the global data.frame
+if(!all(fin.single %in% names(global.df))) stop("Variable name not found in global data.frame")
+```
+
+## Run m1 model
+
+```{r}
+# Set training set
+idx.train <- which(global.df$t <= 51)
+
+# M1: Simple global model
+# Define file path
+model_file <- file.path(outdir, "m1.rds")
+# Check if file exists
+if(!file.exists(model_file)) stop("Model M1 not found!")
+# File exists; read the formula
+m1.frm <- readRDS(model_file)
+# Compute the model
+m1 <- glm(formula = m1.frm,
+          data = global.df[idx.train,],
+          family = binomial(link = "logit"))
+
+```
+
+## Prepare data frame for plotting
+
+```{r}
+# Extract z values from summary
+summary.m1 <- summary(m1)
+df <- data.frame(variable = names(summary.m1$coefficients[,3]),
+                 z = summary.m1$coefficients[,3])
+
+# Load libraries
+library(dplyr)
+library(ggplot2)
+library(stringr)
+
+# Process
+df.aux <- df %>%
+  filter(variable != "(Intercept)") %>%
+  mutate(
+    # Extract level
+    level = case_when(
+      str_detect(variable, "g300") ~ "g300",
+      str_detect(variable, "g500") ~ "g500",
+      str_detect(variable, "g700") ~ "g700",
+      TRUE ~ "Other"
+    ),
+    # Extract coordinates
+    coord = str_extract(variable, "\\d{2}N\\.\\d{1,2}[WE]"),
+    coord = ifelse(is.na(coord), "Station", coord),
+    
+    # Classify type: lag, poly1, poly2, original
+    tipo = case_when(
+      str_detect(variable, "lag1") ~ "lag",
+      str_detect(variable, "poly\\(.*\\, 2\\)1") ~ "poly1",
+      str_detect(variable, "poly\\(.*\\, 2\\)2") ~ "poly2",
+      TRUE ~ "original"
+    )
+  )
+
+# Add column vjust
+df.aux <- df.aux %>%
+  mutate(
+    vjust = ifelse(z >= 0, -0.3, 1.2)
+  )
+```
+
+## Plot z values
+
+```{r}
+# Number of unique categories
+n_groups <- length(unique(df.aux$coord))
+
+# Positions for the lines that separate categories
+vline_positions <- seq(1.5, n_groups - 0.5, by = 1)
+
+df.aux$coord <- factor(df.aux$coord, levels = c("45N.10W", "45N.5E", "Station", "35N.10W", "35N.5E"))
+
+# Colors
+color_map <- c("g300" = "blue", "g500" = "green", "g700" = "red", "Other" = "gray")
+
+g.plot <- ggplot(df.aux, aes(x = coord, y = z, fill = level, group = variable)) +
+  geom_col(position = position_dodge(width = 0.9), color = "black", width = 0.7) +
+  geom_text(aes(label = tipo, vjust = vjust), position = position_dodge(width = 0.9), size = 3.5) +
+  geom_vline(xintercept = vline_positions, linetype = "dashed", color = "gray50") +
+  scale_fill_manual(values = color_map) +
+  labs(
+    x = "",
+    y = "z",
+    title = "",
+    fill = ""
+  ) +
+  theme_minimal() +
+  theme(axis.text.x = element_text(angle = 45, hjust = 1, size = 12),
+        legend.position = "none")
+
+
+
+ggsave(plot = g.plot, path = file.path('C:/Users/elsac/Documents/ERA5_Record_Algorithm/Results/global_zvalues/'), filename = 'm1.pdf', width = 10, height = 5)
+```
