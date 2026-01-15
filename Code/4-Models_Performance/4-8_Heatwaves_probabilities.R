@@ -319,3 +319,56 @@ for (i in 1:length(days.aux)){
 
   
 }
+
+# Now to get geopotential composites
+# Clear workspace
+rm(list = ls())
+
+# Get maps for August really hot week
+source("R/get_contour_map.R")
+
+outdir <- "Results/final_models/Heatwaves/"
+
+get_contour_map(("08-11-2021"), "11th of August 2021", "21.08.11.geo.map.pdf", outdir)
+get_contour_map(("08-12-2021"), "12th of August 2021", "21.08.12.geo.map.pdf", outdir)
+get_contour_map(("08-13-2021"), "13th of August 2021", "21.08.13.geo.map.pdf", outdir)
+get_contour_map(("08-14-2021"), "14th of August 2021", "21.08.14.geo.map.pdf", outdir)
+get_contour_map(("08-15-2021"), "15th of August 2021", "21.08.15.geo.map.pdf", outdir)
+get_contour_map(("08-16-2021"), "16th of August 2021", "21.08.16.geo.map.pdf", outdir)
+get_contour_map(("08-17-2021"), "17th of August 2021", "21.08.17.geo.map.pdf", outdir)
+get_contour_map(("08-18-2021"), "18th of August 2021", "21.08.18.geo.map.pdf", outdir)
+
+get_contour_map(("08-06-2003"), "6th of August 2003", "03.08.06.geo.map.pdf", outdir)
+get_contour_map(("08-07-2003"), "7th of August 2003", "03.08.07.geo.map.pdf", outdir)
+get_contour_map(("08-08-2003"), "8th of August 2003", "03.08.08.geo.map.pdf", outdir)
+get_contour_map(("08-09-2003"), "9th of August 2003", "03.08.09.geo.map.pdf", outdir)
+get_contour_map(("08-10-2003"), "10th of August 2003", "03.08.10.geo.map.pdf", outdir)
+
+get_contour_map(("08-01-2003"), "1st of August 2003", "03.08.01.geo.map.pdf", outdir)
+get_contour_map(("08-02-2003"), "2nd of August 2003", "03.08.02.geo.map.pdf", outdir)
+get_contour_map(("08-03-2003"), "3rd of August 2003", "03.08.03.geo.map.pdf", outdir)
+get_contour_map(("08-04-2003"), "4th of August 2003", "03.08.04.geo.map.pdf", outdir)
+get_contour_map(("08-05-2003"), "5th of August 2003", "03.08.05.geo.map.pdf", outdir)
+
+get_contour_map(("07-27-2003"), "1st of July 2003", "03.07.27.geo.map.pdf", outdir)
+get_contour_map(("07-28-2003"), "2nd of July 2003", "03.07.28.geo.map.pdf", outdir)
+get_contour_map(("07-29-2003"), "3rd of July 2003", "03.07.29.geo.map.pdf", outdir)
+get_contour_map(("07-30-2003"), "4th of July 2003", "03.07.30.geo.map.pdf", outdir)
+get_contour_map(("07-31-2003"), "5th of July 2003", "03.07.31.geo.map.pdf", outdir)
+
+get_contour_map(("08-08-2023"), "8th of August 2023", "23.08.08.geo.map.pdf", outdir)
+get_contour_map(("08-09-2023"), "9th of August 2023", "23.08.09.geo.map.pdf", outdir)
+get_contour_map(("08-10-2023"), "10th of August 2023", "23.08.10.geo.map.pdf", outdir)
+get_contour_map(("08-11-2023"), "11th of August 2023", "23.08.11.geo.map.pdf", outdir)
+get_contour_map(("08-12-2023"), "12th of August 2023", "23.08.12.geo.map.pdf", outdir)
+
+get_contour_map(("08-18-2023"), "18th of August 2023", "23.08.18.geo.map.pdf", outdir)
+get_contour_map(("08-19-2023"), "29th of August 2023", "23.08.19.geo.map.pdf", outdir)
+get_contour_map(("08-20-2023"), "20th of August 2023", "23.08.20.geo.map.pdf", outdir)
+get_contour_map(("08-21-2023"), "21st of August 2023", "23.08.21.geo.map.pdf", outdir)
+get_contour_map(("08-22-2023"), "22nd of August 2023", "23.08.22.geo.map.pdf", outdir)
+get_contour_map(("08-23-2023"), "23rd of August 2023", "23.08.23.geo.map.pdf", outdir)
+get_contour_map(("08-24-2023"), "24th of August 2023", "23.08.24.geo.map.pdf", outdir)
+get_contour_map(("08-25-2023"), "25th of August 2023", "23.08.25.geo.map.pdf", outdir)
+get_contour_map(("08-26-2023"), "26th of August 2023", "23.08.26.geo.map.pdf", outdir)
+get_contour_map(("08-27-2023"), "27th of August 2023", "23.08.27.geo.map.pdf", outdir)
