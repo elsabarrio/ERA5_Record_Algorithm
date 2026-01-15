@@ -133,8 +133,15 @@ for(ss in 1:length(si_idx)){
     ylim(0.9,6.1) +
     scale_x_continuous(breaks = c(1, 21, 41, 61),
                        labels = c("1 (1960)", "21 (1980)", "41 (2000)", " 61 (2020)")) +
-    labs(subtitle = plot_subt) +
-    theme_bw()
+    labs(title = plot_subt) +
+    theme_bw()+
+    theme(
+      plot.title = element_text(size = 15),         # Increase title size
+      axis.title = element_text(size = 15),         # Increase axis labels size
+      axis.text = element_text(size = 15),          # Increase axis values size
+      legend.text = element_text(size =15),        # Increase legend text size
+      legend.title = element_text(size = 15)        # Increase legend title size
+    )
   show(g2)
   # Show z-values
   show(ntz_vec)
@@ -143,8 +150,8 @@ for(ss in 1:length(si_idx)){
   
   # Save
   ggsave(filename = paste0("g",stations$STAID[si_idx[ss]],"_records.pdf"),
-         width = 5,
-         height = 3,
+         width = 5.5,
+         height = 3.5,
          plot = g2,
          device = "pdf",
          path = out_dir)

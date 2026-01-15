@@ -11,6 +11,12 @@ if(!is.element("RColorBrewer", row.names(installed.packages()))) install.package
 library(RColorBrewer)
 if(!is.element("maps", row.names(installed.packages()))) install.packages("maps")
 library(maps)
+library(grid)
+library(cowplot)
+library(RColorBrewer)
+library(maps)
+library(car)
+
 
 # Set data directory
 data_dir <- "Data"
@@ -50,7 +56,11 @@ g1a <- ggplot(data = trnd_df,
   xlab("t (year)") +
   scale_x_continuous(breaks = c(1, 21, 41, 61),
                      labels = c("1 (1960)", "21 (1980)", "41 (2000)", " 61 (2020)")) +
-  theme_bw()
+  theme_minimal() +
+  theme(    
+    axis.title = element_text(size = 15),         # Increase axis labels size
+    axis.text = element_text(size = 15),          # Increase axis values size
+  )
 show(g1a)
 ggsave(filename = "trend_pt_Ix.pdf",
        plot = g1a,
@@ -63,13 +73,21 @@ ggsave(filename = "trend_pt_Ix.pdf",
 stations$Zona <- factor(stations$Zona)
 levels(stations$Zona) <- c("A","C","E","G","L","NP","SP")
 
+# Compute centroids per zone
+zone_centers <- aggregate(
+  cbind(LON, LAT) ~ Zona,
+  data = stations,
+  FUN = mean
+)
+
 # Stations and colors by zone
-outfile <- file.path(out_dir,"map_colzone.pdf")
-pdf(file = outfile, width = 4, height = 4)
+outfile <- file.path(out_dir,"map_colzone.png")
+png(file = outfile, width = 800, height = 600, res = 150, bg = "transparent")
 # Mapa with Iberic peninsula plus Balear islands
 map(regions=sov.expand(c("Spain", "Portugal")),
     #mar = c(0,0,0,0),
-    xlim=c(-10,5))
+    xlim=c(-10,5),
+    fill = FALSE)
 # Set zone colors for each station
 auxcol <- brewer.pal(7, "Set1")[as.integer(stations$Zona)]
 # Include the stations points
@@ -80,6 +98,19 @@ points(x = stations$LON,
        pch = 21,
        cex = 1.5)
 #abline(h=c(36:44), v=c(-10:10), lty=3)
+# Colors per zone (same palette)
+zone_cols <- brewer.pal(7, "Set1")[as.integer(zone_centers$Zona)]
+library(car)
+dx <- c(A = 0.1, C = 0, E = 0, G = 0.6, L = 0.3, NP = 0.1, SP = 0)
+dy <- c(A = 0.4, C = -0.5, E = 0.2, G = 0, L = 0, NP = 0.25, SP = -0.2)
+text(
+  zone_centers$LON + dx[zone_centers$Zona],
+  zone_centers$LAT + dy[zone_centers$Zona],
+  labels = zone_centers$Zona,
+  col = zone_cols,
+  font = 2,
+  cex = 1.05
+)
 dev.off()
 
 # Probability of record trends by zone (Tx)
@@ -106,7 +137,13 @@ g1c <- ggplot(data = trend_df,
   ylab(expression(t %*% hat(p)[t])) +
   xlab("t (year)") +
   scale_x_continuous(breaks = c(1, 21, 41, 61),
-                     labels = c("1 (1960)", "21 (1980)", "41 (2000)", " 61 (2020)"))
+                     labels = c("1 (1960)", "21 (1980)", "41 (2000)", " 61 (2020)"))+  
+  theme_minimal() +
+  theme(    
+    axis.title = element_text(size = 15),         # Increase axis labels size
+    axis.text = element_text(size = 15),          # Increase axis values size
+    legend.position = 'none'
+  )
 show(g1c)
 # Save
 ggsave(filename = "trend_pt_Ix_zone.pdf",
@@ -116,6 +153,28 @@ ggsave(filename = "trend_pt_Ix_zone.pdf",
        width = 5,
        height = 4)
 
+library(cowplot)
+library(png)
+library(grid)
+map_img  <- readPNG(file.path(out_dir,"map_colzone.png"))
+map_grob <- rasterGrob(map_img, interpolate = TRUE)
+
+final_plot <- ggdraw(g1c) +
+  draw_plot(
+    map_grob,
+    x = 0,   # left
+    y = 0.25,   # top
+    width = 0.9,
+    height = 0.9
+  )
+
+final_plot
+ggsave(filename = "trend_pt_Ix_zone_map.pdf",
+       plot = final_plot,
+       device = "pdf",
+       path = out_dir,
+       width = 5,
+       height = 4)
 ###############################################################################
 # Persistence
 ###############################################################################
@@ -156,7 +215,12 @@ g2a <- ggplot(data = or_df[-1,],
   xlab("t (year)") +
   scale_x_continuous(breaks = c(1, 21, 41, 61),
                      labels = c("1 (1960)", "21 (1980)", "41 (2000)", " 61 (2020)")) +
-  theme_bw()
+  theme_minimal() +
+  theme(    
+    axis.title = element_text(size = 15),         # Increase axis labels size
+    axis.text = element_text(size = 15),          # Increase axis values size
+    legend.position = 'none'
+  )
 show(g2a)
 # Save
 ggsave(filename = "trend_LOR.pdf",

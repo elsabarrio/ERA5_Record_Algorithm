@@ -69,7 +69,7 @@ if (!requireNamespace("tidyr", quietly = TRUE)) {
 library(tidyr)
 
 types <- c('originals', 'lags', 'poly2')
-plot.titles <- c('Lineal', 'Lag', 'Quadratic')
+plot.titles <- c('Linear', 'Lag', 'Quadratic')
 
 # Save stats
 all_stats <- list()

@@ -369,10 +369,10 @@ auc.global <- read.csv(file.path(outdir,'AUC','auc_global.csv'))
 
 auc.global$min.coast <- NA
 auc.global$mean.coast <- NA
-auc.global$Q10.coast <- NA
+#auc.global$Q10.coast <- NA
 auc.global$Q25.coast <- NA
 auc.global$median.coast <- NA
-auc.global$mean.diff.coast <- NA
+#auc.global$mean.diff.coast <- NA
 auc.global$median.diff.coast <- NA
 auc.global$Q10.diff.coast <- NA
 
@@ -391,13 +391,15 @@ for (i in seq_along(mls)){
   # Add measures to auc.global dataframe
   auc.global$min.coast[i] <- min(coastal_df$AUC)
   auc.global$median.coast[i] <- median(coastal_df$AUC)
-  auc.global$Q10.coast[i] <- quantile(coastal_df$AUC, 0.10)
+  #auc.global$Q10.coast[i] <- quantile(coastal_df$AUC, 0.10)
   auc.global$Q25.coast[i] <- quantile(coastal_df$AUC, 0.25)
   auc.global$mean.coast[i] <- mean(coastal_df$AUC)
 
-  auc.global$mean.diff.coast[i] <- abs(mean(diff))
+  #auc.global$mean.diff.coast[i] <- abs(mean(diff))
   auc.global$median.diff.coast[i] <- abs(median(diff))
   auc.global$Q10.diff.coast[i] <- abs(quantile(diff, 0.10))
 }
+
+auc.global.aux <- auc.global[,c('Model','k','n_var','AIC','AUC','AUC.inner','AUC.coast','min.coast','Q25.coast','median.coast','mean.coast','Q10.diff.coast','median.diff.coast')]
 
 ```

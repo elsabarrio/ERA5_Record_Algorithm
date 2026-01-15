@@ -32,10 +32,21 @@ new.df.aux$DATE <- as.Date(DATE, format = "%m/%d/%Y")
 
 
 # Input day
+#days <- c('2001-08-10','2002-08-10','2003-08-10', '2004-08-10','2005-08-10','2006-08-10',
+          #'2007-08-10','2008-08-10','2009-08-10', '2010-08-10','2011-08-10','2012-08-10',
+          #'2013-08-10','2014-08-10','2015-08-10', '2016-08-10','2017-08-10', '2018-08-10',
+          #'2019-08-10','2020-08-10','2021-08-10', '2022-08-10','2023-08-10')
+
 days <- c('2001-08-10','2002-08-10','2003-08-10', '2004-08-10','2005-08-10','2006-08-10',
           '2007-08-10','2008-08-10','2009-08-10', '2010-08-10','2011-08-10','2012-08-10',
           '2013-08-10','2014-08-10','2015-08-10', '2016-08-10','2017-08-10', '2018-08-10',
-          '2019-08-10','2020-08-10','2021-08-10', '2022-08-10','2023-08-10')
+          '2019-08-10','2020-08-10','2021-08-10', '2022-08-10','2023-08-10', 
+          '2003-08-01','2003-08-02','2003-08-03','2003-08-04','2003-08-05',
+          '2023-08-22','2023-08-23','2023-08-24','2023-08-25','2023-08-26',
+          '2023-08-08','2023-08-09','2023-08-10','2023-08-11','2023-08-12')
+
+days <- c('2021-08-10','2021-08-11','2021-08-12','2021-08-13',
+          '2021-08-14','2021-08-15','2021-08-16','2021-08-17')
 
 for (day in days){
   
@@ -145,43 +156,74 @@ for (day in days){
   library(sf)
   library(ggspatial)
   library(akima)
-  
-  # Interpolate prediction values over a regular grid
-  interp_res <- with(plot.df, akima::interp(x = LON, y = LAT, z = pred,
-                                            xo = seq(min(LON), max(LON), length = 200),
-                                            yo = seq(min(LAT), max(LAT), length = 200),
-                                            linear = TRUE, extrap = FALSE))
-  
-  # Convert interpolation result to data frame
-  interp.df <- expand.grid(LON = interp_res$x, LAT = interp_res$y)
-  interp.df$pred <- as.vector(interp_res$z)
-  
-  # Remove NA values resulting from interpolation (e.g., in extrapolated areas)
-  interp.df <- na.omit(interp.df)
+  library(raster)
+  library(dplyr)
+  library(gstat) 
   
   # Convert to sf points
-  interp.sf <- st_as_sf(interp.df, coords = c("LON", "LAT"), crs = 4326)
+  stations.sf <- st_as_sf(plot.df, coords = c("LON", "LAT"), crs = 4326)
   
-  # Download base map and extract target region
+  # Download Spain polygon
   world <- ne_countries(scale = "medium", returnclass = "sf")
-  region <- subset(world, admin %in% c("Spain", "Portugal", "France", "Morocco", "Algeria", 'Andorra'))
+  region <- subset(world, admin %in% c("Spain", "Portugal", "France", "Morocco", "Algeria", "Andorra"))
+  spain <- subset(world, admin == "Spain")
   
-  # Filter only interpolated points that fall on land
-  interp.sf <- st_join(interp.sf, region, join = st_intersects, left = FALSE)
+  # Separate multipolygon into individual polygons
+  spain_parts <- st_cast(spain, "POLYGON")
   
-  # Convert back to data frame for plotting
-  interp.df <- cbind(st_coordinates(interp.sf), pred = interp.sf$pred)
+  # Keep only mainland (largest polygon)
+  spain_mainland <- spain_parts %>% 
+    mutate(area = st_area(.)) %>% 
+    slice_max(area, n = 1) %>% 
+    st_as_sf()
   
-  # Create heatmap
+  # Create a regular grid over Spain
+  spain_bbox <- st_bbox(spain_mainland)
+  grid_res <- 0.05  # grid resolution in degrees (~5 km)
+  x_seq <- seq(spain_bbox["xmin"], spain_bbox["xmax"], by = grid_res)
+  y_seq <- seq(spain_bbox["ymin"], spain_bbox["ymax"], by = grid_res)
+  grid <- expand.grid(x = x_seq, y = y_seq)
+  grid.sf <- st_as_sf(grid, coords = c("x", "y"), crs = 4326)
+  grid.sf <- st_intersection(grid.sf, spain_mainland)  # keep points only inside Spain
+  
+  # Kriging interpolation
+  stations.sp <- as(stations.sf, "Spatial")    # convert for gstat
+  grid.sp <- as(grid.sf, "Spatial")
+  
+  
+  # Kriging interpolation
+  stations.sp <- as(stations.sf, "Spatial")    # convert for gstat
+  grid.sp <- as(grid.sf, "Spatial")
+  
+  # Fit variogram
+  vgm1 <- variogram(pred ~ 1, data = stations.sp)
+  fit.vgm <- fit.variogram(vgm1, model = vgm("Sph"))
+  
+  # Ordinary kriging
+  krig_res <- krige(pred ~ 1, locations = stations.sp, newdata = grid.sp, model = fit.vgm)
+  
+  # Convert kriging results to data frame for ggplot
+  krig.df <- as.data.frame(krig_res)
+  names(krig.df)[names(krig.df) == "var1.pred"] <- "pred"
+  
+  # Plot with ggplot
   g.map <- ggplot() +
-    geom_tile(data = interp.df, aes(x = X, y = Y, fill = pred), alpha = 1) +  # only land points
-    geom_sf(data = region, fill = NA, color = "white", size = 0.6) +          # borders
-    scale_fill_viridis_c(option = "inferno", name = "", limits = c(0, 0.7)) + # color scale
-    coord_sf(xlim = c(-10, 5), ylim = c(35, 45), expand = FALSE) +            # map extent
+    geom_tile(data = krig.df, aes(x = coords.x1, y = coords.x2, fill = pred)) +
+    geom_sf(data = region, fill = NA, color = "black", size = 0.6) +
+    scale_fill_viridis_c(option = "inferno", name = "", limits = c(0, 0.8)) +
+    coord_sf(xlim = c(-10, 5), ylim = c(35, 45), expand = FALSE) +
     labs(title = day) +
-    ylab('') +
-    xlab('') +
-    theme_minimal()
+    theme_minimal() +
+    xlab('') + ylab('')+
+    theme(
+      plot.title = element_text(size = 15, hjust = 0.5),
+      legend.title = element_text(size = 15),
+      legend.text = element_text(size = 15),
+      axis.title.x = element_text(size = 15), 
+      axis.title.y = element_text(size = 15),
+      axis.text.y = element_text(size = 15),
+      axis.text.x = element_text(size = 15, angle = 45, hjust = 1,  face = "bold")
+    )
   
   library(cowplot)
   
