@@ -10,4 +10,4 @@ The sections:
 - [Data](https://github.com/elsabarrio/ERA5_Record_Algorithm/tree/main/Data): includes all the downloaded and preprocessed data.
 - [R](https://github.com/elsabarrio/ERA5_Record_Algorithm/tree/main/R): includes auxiliary functions.
 - [Results](https://github.com/elsabarrio/ERA5_Record_Algorithm/tree/main/Results): includes all the exploratory, modeling, and prediction results.
-- [Data](https://github.com/elsabarrio/ERA5_Record_Algorithm/tree/main/Data): includes all the downloaded and preprocessed data.
+
