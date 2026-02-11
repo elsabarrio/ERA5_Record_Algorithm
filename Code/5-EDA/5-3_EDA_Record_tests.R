@@ -143,6 +143,8 @@ for(ss in 1:length(si_idx)){
       legend.title = element_text(size = 15)        # Increase legend title size
     )
   show(g2)
+  g2 <- g2 +
+    theme(legend.position = "none")
   # Show z-values
   show(ntz_vec)
   # Show p-values
@@ -150,9 +152,25 @@ for(ss in 1:length(si_idx)){
   
   # Save
   ggsave(filename = paste0("g",stations$STAID[si_idx[ss]],"_records.pdf"),
-         width = 5.5,
+         width = 4.5,
          height = 3.5,
          plot = g2,
          device = "pdf",
          path = out_dir)
 }
+
+library(cowplot)
+
+# Recreate the plot WITH legend (or use a copy before hiding it)
+g2_with_legend <- g2 +
+  theme(legend.position = "right")
+legend_g2 <- get_legend(g2_with_legend)
+legend_plot <- plot_grid(legend_g2)
+ggsave(
+  filename = paste0("records_legend.pdf"),
+  plot = legend_plot,
+  width = 1.5,
+  height = 3,
+  device = "pdf",
+  path = out_dir
+)

@@ -8,9 +8,13 @@ if(!dir.exists(data_dir)) stop("data_dir not found")
 # Read list of observatories of interest. Based on previous work.
 stations <- read.csv("Data/geo_peninsula_zones.csv")
 
+# Read records
+itx3d <- readRDS("Data/record_data/recordvol.rds")
+
 # Do not consider (for now) more than one station from Madrid
 stations$STANAME[which(is.na(stations$Zona))]
 idx <- which(!is.na(stations$Zona))
+stations <- stations[idx, ]
 
 # Modify Barcelona-Airport label
 stations$STANAME[10] <- "FABRA OBSERVATORY                       "
@@ -51,7 +55,7 @@ library(ggplot2)
 # 19th of June 2017: itx3d[58,19,]
 
 # Read predictions
-predict.df.aux <- read.csv('~ERA5_Record_Algorithm/Results/final_models/Predicts/preds_m2.csv')
+predict.df.aux <- read.csv('Results/final_models/Predicts/preds_m2.csv')
 
 # Define parameters of specific day
 hot.day <- itx3d[64,84,]
@@ -80,7 +84,7 @@ library(gridExtra)
 
 g1 <- ggplot(data = df.sim.true, aes(x = names)) +
   # Simulated values
-  geom_point(aes(y = preds, fill = factor(true)), color = "black", shape = 21, size = 3, stroke = 0.5) +
+  geom_point(aes(y = sim, fill = factor(true)), color = "black", shape = 21, size = 3, stroke = 0.5) +
   # Real values
   geom_point(aes(y = 0, fill = factor(true)), shape = 22, size = 4) +
   scale_fill_manual(values = c("white", "black")) +
@@ -88,7 +92,7 @@ g1 <- ggplot(data = df.sim.true, aes(x = names)) +
   labs(x = "Stations", y = "Simulated Record",
        title = foot) +
   #ggtitle("Green models' predicitons in a hot August day of 2023") +
-  ggtitle("M2 models' predictions") +
+  ggtitle("M2 model's predictions") +
   theme_minimal() +
   theme(axis.title.x = element_blank(),
         axis.text.x = element_text(angle = 60, hjust = 1),
@@ -101,6 +105,6 @@ g1 <- ggplot(data = df.sim.true, aes(x = names)) +
   coord_cartesian(ylim = c(0, 0.5))  # Set y-axis limits from 0 to 1
 
 
-#ggsave(filename = paste0(date.name,"M2.predictions.png"),plot = g1, 
-#device = "png", path = file.path("Results/final_models/Heatwaves/"),
-#width = 8, height = 6, bg = "white")
+ggsave(filename = paste0(date.name,"M2.predictions.png"),plot = g1, 
+device = "png", path = file.path("Results/final_models/Heatwaves/"),
+width = 8, height = 6, bg = "white")
