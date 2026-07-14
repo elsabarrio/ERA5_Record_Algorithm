@@ -88,8 +88,8 @@ if(!dir.exists(outdir)){
   idx.years <- format(itx.mat$Date, "%Y")
   tab.years <- table(idx.years)
   length(tab.years)
-  idx.train <- which(!is.na(match(idx.years,names(tab.years)[1:51])))
-  #idx.test <- which(is.na(match(idx.years,names(tab.years)[1:51])))
+  idx.train <- which(!is.na(match(idx.years,names(tab.years)[2:51])))
+  idx.test <- which(is.na(match(idx.years,names(tab.years)[1:51])))
   
   for(ss in 1:nrow(stations)){
     
@@ -167,9 +167,9 @@ if(!dir.exists(outdir)){
   
     # Calculate the AUC value
     predict.test <- predict(best_model,
-                            newdata = bin_df[-idx.train,],
+                            newdata = bin_df[idx.test,],
                             type = "response")
-    roc.aux <- roc(bin_df[-idx.train,]$Ix, predict.test, print.auc = TRUE)
+    roc.aux <- roc(bin_df[idx.test,]$Ix, predict.test, print.auc = TRUE)
     print(auc(roc.aux))
     
     # Save AUC values in data.frame

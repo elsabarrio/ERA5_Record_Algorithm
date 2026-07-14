@@ -35,7 +35,7 @@ gall <- cbind(read.csv(file.path(data_dir,"grid_data","g300_grid.csv")),
 outdir <- "Results/local_zvalues/Bootstrap"
 
 # Start loop to construct the local models
-if(!dir.exists(outdir)){
+if(dir.exists(outdir)){
   
   # Load libraries
   if(!is.element("dplyr", row.names(installed.packages()))) install.packages("dplyr")
@@ -153,7 +153,7 @@ if(!dir.exists(outdir)){
       
       # Compute a stepAIC to each of the models
       #tic <- Sys.time()
-      cat("\nRunning stepAIC")
+      #cat("\nRunning stepAIC")
       fit1_step <- stepAIC(object = fit1, direction = "both", trace = FALSE)
       fit2_step <- stepAIC(object = fit2, direction = "both", trace = FALSE)
       fit3_step <- stepAIC(object = fit3, direction = "both", trace = FALSE)
@@ -176,8 +176,9 @@ if(!dir.exists(outdir)){
       predict.test <- predict(best_model,
                               newdata = bin_df[-idx.train,],
                               type = "response")
-      roc.aux <- roc(bin_df[-idx.train,]$Ix, predict.test, print.auc = TRUE)
-      print(auc(roc.aux))
+      roc.aux <- roc(bin_df[-idx.train,]$Ix, predict.test,
+                     print.auc = F, quiet = T)
+      #print(auc(roc.aux))
       
       # Save AUC values in data.frame
       AUC.df[ss,tt+2] <- auc(roc.aux)
@@ -216,7 +217,7 @@ if(!dir.exists(outdir)){
             file = file.path(outdir,"boot_zval.rds"))
     
     toc <- Sys.time()
-    print(toc-tic)# 1.2087 mins
+    print(toc-tic)# 13.69895 mins
     
   }# for ss in stations
   
