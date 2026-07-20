@@ -71,7 +71,7 @@ library(MASS)
 model_file <- file.path(outdir, "m1.rds")
  
 # Set training set
-idx.train <- which(global.df$t <= 51)
+idx.train <- which(global.df$t <= 51 & global.df$t > 1)
    
 # Check if file exists
 if (!file.exists(model_file)) {
@@ -94,7 +94,7 @@ if (!file.exists(model_file)) {
                  k = 10.82757)
    toc <- Sys.time()
    cat("M1: ")
-   print(toc-tic) # Time difference of 6.29911 mins
+   print(toc-tic) # Time difference of 31.87176 mins
    
    # If any poly-2 term-2 is not significant remove it
    m1.frm <- as.character(m1$formula)
@@ -171,7 +171,7 @@ if(!file.exists(model_file)) {
   toc <- Sys.time()
   cat("M2: ")
   print(toc-tic)
-  # Time difference of 1.167066 hours
+  # Time difference of 5.773433 hours
   
   # Save model 
   m2.frm <- m2$formula
@@ -215,7 +215,7 @@ if (!file.exists(model_file)) {
   toc <- Sys.time()
   cat("M3: ")
   print(toc-tic)
-  # Time difference of 34.34422 mins
+  # Time difference of 4.872496 hours
   
   # Save model 
   m3.frm <- m3$formula
@@ -258,7 +258,7 @@ if(!file.exists(model_file)) {
   toc <- Sys.time()
   cat("M4: ")
   print(toc-tic)
-  # Time difference of 19.94456 mins
+  # Time difference of 1.826904 hours
   
   # Save model 
   m4.frm <- m4$formula
@@ -301,7 +301,7 @@ if(!file.exists(model_file)) {
   toc <- Sys.time()
   cat("M5: ")
   print(toc-tic)
-  # Time difference of 1.099813 hours
+  # Time difference of 1.379474 days
   
   # Save model 
   m5.frm <- m5$formula
@@ -309,87 +309,5 @@ if(!file.exists(model_file)) {
 
 }
 
-# M5 aux with M3 as lower scope
-# Define file path
-model_file <- file.path(outdir, "m5.M3lower.rds")
 
-# Check if file exists
-if(!file.exists(model_file)) {
-  
-  frm3 <- readRDS('C:/Users/elsac/Documents/ERA5_Record_Algorithm/Results/final_models/m3.rds')
-  
-  m3 <- glm(formula = frm3,
-           data = global.df[idx.train,],
-           family = binomial(link = "logit"))
-  
-  # File does not exist; run the code to compute and save the model
-  fin.var.m1 <- readRDS(file.path(outdir,"final_variables_m1.rds"))
-  # Get formula
-  frm.5 <- as.formula(paste0("Ix~ (",capture.output(cat(fin.var.m1, sep = "+")),") * (LAT + LON) * (avg.Tx + sd.Tx) * (Altitude + log(CoastDist)) "))
-  
-  # Define model before step
-  full.m5 <- glm(formula = frm.5,
-                 data = global.df[idx.train,],
-                 family = binomial(link = "logit"))
-
-  
-  # Run step
-  tic <- Sys.time()
-  m5 <- stepAIC(object = m3,
-                direction = "both",
-                scope = list(lower = m3, upper = full.m5),
-                k = 10.82757)
-  toc <- Sys.time()
-  cat("M5: ")
-  print(toc-tic)
-  # Time difference of 1.099813 hours
-  
-  # Save model 
-  m5.frm <- m5$formula
-  saveRDS(m5$formula, file = model_file)
-
-}
-
-# M5 aux with M4 as lower scope
-# Define file path
-model_file <- file.path(outdir, "m5.M4lower.rds")
-
-# Check if file exists
-if(!file.exists(model_file)) {
-  
-  frm4 <- readRDS('C:/Users/elsac/Documents/ERA5_Record_Algorithm/Results/final_models/m4.rds')
-  
-  m4 <- glm(formula = frm4,
-           data = global.df[idx.train,],
-           family = binomial(link = "logit"))
-  
-  # File does not exist; run the code to compute and save the model
-  fin.var.m1 <- readRDS(file.path(outdir,"final_variables_m1.rds"))
-  # Get formula
-  frm.5 <- as.formula(paste0("Ix~ (",capture.output(cat(fin.var.m1, sep = "+")),") * (LAT + LON) * (avg.Tx + sd.Tx) * (Altitude + log(CoastDist)) "))
-  
-  # Define model before step
-  full.m5 <- glm(formula = frm.5,
-                 data = global.df[idx.train,],
-                 family = binomial(link = "logit"))
-
-  
-  # Run step
-  tic <- Sys.time()
-  m5 <- stepAIC(object = m4,
-                direction = "both",
-                scope = list(lower = m4, upper = full.m5),
-                k = 10.82757)
-  toc <- Sys.time()
-  cat("M5: ")
-  print(toc-tic)
-  # Time difference of 1.099813 hours
-  
-  # Save model 
-  m5.frm <- m5$formula
-  saveRDS(m5$formula, file = model_file)
-
-}
 ```
-
-# 
